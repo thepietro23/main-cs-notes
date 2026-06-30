@@ -1,0 +1,281 @@
+Page 1 of 6 
+ 
+ 
+ 
+SECURITIES AND EXCHANGE BOARD OF INDIA 
+ 
+INFORMATION HANDOUT  
+Paper 2 of Phase II of Information Technology Stream 
+  
+This handout contains details about various aspects of the online programming test 
+i.e Paper 2 of Phase II of Information Technology Stream that you are going to 
+undertake and important instructions about the related matters. You are advised to 
+read the handout carefully as it will help you in preparing for the examination.  
+The candidates should reach the venue at least 60 minutes before the start of the 
+exam.  
+1. Total duration of the programming test shall be Three hours and 30 minutes 
+i.e 30 minutes of reading time for candidates to read the questions at the 
+start of the examination, during which typing on “Parikshak” shall be 
+blocked and 3 Hours for solving the questions on “Parikshak”  . 
+ 
+2. The programming test will comprise of nine (9) questions of diff erent 
+complexity as mentioned below:  
+Complexity 
+Type 
+Questions needs to be solved Maximum Marks per 
+Question 
+Simple  3 out of 4 10 
+Medium  2 out of 3 20 
+High  1 out of 2 30 
+  
+The maximum marks for each complexity type is as mentioned below: 
+ 
+Complexity Type Maximum Marks 
+Simple  30 
+Medium  40 
+High  30 
+Total Maximum Marks for 
+Paper 2 i.e programming test 
+100 
+ 
+ 
+ 
+Page 2 of 6 
+ 
+Please note: 
+● There shall be 4 questions of Simple complexity from which candidates 
+needs to solve any 3 questions.  
+ 
+● There shall be 3 questions of Medium complexity from which 
+candidates needs to solve any 2 questions.  
+ 
+● There shall be 2 questions of High complexity from which candidates 
+needs to solve any 1 question.  
+ 
+In case any candidates solves more than the required no. of questions for any 
+complexity type, while evaluation, questions where the candidate is getting 
+lowest marks shall not be considered.  
+ 
+Example: In case a candidate solves all 4 questions related to Simple 
+Complexity type and during evaluation, the maximum marks obtained by the 
+candidate is 10, 6, 8 & 8 for those problems, the question where the marks 
+obtained by the candidate is lowest i.e 6 marks shall not be considered and 
+the candidate shall be awarded a total of 26 marks (10+8+8) out of maximum 
+30 marks for Simple Complexity type. 
+ 
+3. The program for any of the questions can be submitted to the system (“Submit 
+to Grader”) any number of times during the duration of the examination. 
+ 
+4. Questions can be solved in any order. However, it is recommended to solve in 
+the increasing order of complexity. Further, in case candidates starts a 
+particular questions and is facing difficulty to solve the same, he/she can 
+select another question and start solving the same.   
+ 
+Candidates shall be able to attempt the unsolved attempted question later 
+during the remaining duration of the examination.  
+ 
+5. After entering the exam in the Parikshak environment, do not close your 
+test by clicking the “Close Test”  button at the bottom unless you are 
+sure to exit the exam. If you exit by closing your test you will not be 
+allowed to enter again. 
+6. Programming languages that can be used to solve questions are as follows: 
+For SEBI’s exam, Parikhak allows only the following 3 programming 
+languages and versions as mentioned below: 
+Language Version 
+C++ (GCC) 9.3 
+Java 1.8 
+Python 3.5 
+Page 3 of 6 
+ 
+7. There is no restriction on using the default libraries provided by programming 
+languages, except for a few malicious functions, the system will prompt you 
+when you try to use those functions.  
+ 
+8. After writing a program for any question and submitting it to the grader, the 
+system will compile, and if compilation is successful then test the program 
+against system inputs (test cases). There may be multiple system test cases 
+for each question (minimum of 5 test cases shall be there). If the program’s 
+output for any test case is as expected then the system will show output as 
+“Y” else “X” shall be shown as output.  
+ 
+9. For any question, if you get two or more “Y” for the test cases, your 
+submitted code shall be considered for evaluation and based upon the 
+number of “Y” you will be assigned marks proportionally  (For example, if 
+you get three “Y” for 6 test cases, you will get ½ of the maximum marks 
+assigned for that question. If you get one “Y” then you will get 0 marks. If you 
+get 4 “Y” for 6 test cases then you will get ⅔ of the maximum marks assigned 
+for that question. If you get 6 “Y” for 6 test cases then you will get the 
+maximum marks assigned for that question.). 
+ 
+10. For any question, if you have multiple submissions to the grader, then the 
+attempt having a maximum number of “Y” would be considered for evaluation. 
+ 
+11. Once you are satisfied with your submitted programs and you want to 
+exit the exam then you can do so by clicking the “Close Test” button. 
+However, you will not be allowed to leave the examination hall befo re 
+the completion of the exam duration. 
+ 
+12. After the expiry of duration of the exam, the program(s) would be saved 
+automatically by the computer system even if the candidate has not clicked 
+the “Close Test” button. 
+ 
+13. Candidates are advised to refer to the att ached Parikshak manual for 
+more details about the programming environment. 
+Disclaimer: Parikshak program grading is purely input/output based. SEBI/test 
+conducting body reserves the right to manually examine the submitted code 
+against malpractices and repo rted errors related to problem specifications. When 
+there is adequate ground, SEBI/test conducting body may override Parikshak's 
+verdict by granting/denying credit. 
+ 
+ 
+ 
+ 
+ 
+Page 4 of 6 
+ 
+General Instructions: 
+1. Please note the date, Reporting time, and venue address of the examination 
+given in the call letter.   
+2. You may visit the venue one day before the Online Examination to confirm the 
+location so that you can report on time (as printed on the call letter) on the 
+day of the examination. Latecomers will not be allowed. 
+ 
+3. The call letter should be brought with you to the examination venue along with 
+your recent passport -size photograph duly pasted on it. (Preferably the same 
+photograph as was as uploaded). 
+ 
+4. You must scrupulously follow the instructions of the Test Administrato r and 
+SEBI Representative at the examination venue. If you violate the instructions 
+you will be disqualified and will be asked to leave the examination venue. 
+ 
+5. No use of calculators (separate or with a watch), books, notebooks or written 
+notes, or any othe r electronic device will be allowed during the examination. 
+Candidates will be required to switch off their mobile phones, and 
+deposit it at the designated location, to be collected while exiting.  
+ 
+6. Please bring the call letter with your photograph affixed  thereon, currently 
+valid Photo identity proof in original and a photocopy of the same ID proof 
+which you bring in original - THIS IS ESSENTIAL. The call letter along with 
+a photocopy of photo identity proof duly stapled together are to be 
+submitted at the  end of the exam.  Currently valid photo identity proof may 
+be PAN Card/Passport/Permanent Driving Licence/Voter’s Card  with 
+photograph/Bank Passbook with photograph/Photo Identity proof issued by a 
+Gazetted Officer on official letterhead along with photograph/Photo Identity 
+proof issued by a People’s Representative on official letterhead along with the 
+photograph/Valid recent Identity Card issued by a recognized College/  
+University/Aadhaar Card/E-Aadhaar Card with a photograph/  Employee ID in 
+original/Bar Council Identity card with photograph. Please Note - Ration Card 
+and Learner’s Driving License will not be accepted as valid ID proof for 
+this purpose.  Please note that your name as appearing on the call letter 
+(provided by you during the process of registration) should exactly match the 
+name as appears on the photo identity proof. Female candidates who have 
+changed first/last/middle name post marriage must take special note of this. If 
+there is any mismatch between the name indicated in the Call Lett er and 
+Photo Identity Proof you will not be allowed to appear for the exam. 
+ 
+7. A candidate who is or has been declared by SEBI guilty of impersonation or of 
+submitting fabricated document/s which have been tampered with or of 
+making statements that are incor rect or false or of suppressing material 
+information or otherwise resorting to any other irregular or improper means of 
+obtaining admission to examination or of using or attempting to use unfair 
+means in the examination hall or misbehavior in the examinati on hall may be 
+Page 5 of 6 
+ 
+debarred permanently or for a specified period by SEBI from admission to any 
+examination or appearance at any interview held by it for selection of the 
+candidates. SEBI may take further action against such candidates as deemed 
+fit by it. 
+ 
+8. Any candidate who is found copying or receiving or giving assistance or 
+engaging in any behavior unbecoming of a candidate will not be considered 
+for assessment. SEBI may take further action against such candidates as 
+deemed fit by it. 
+ 
+9. The possibility of occurrence of some problem in the administration of the 
+examination cannot be ruled out completely which may impact test delivery 
+and/or result from being generated. In that event, every effort will be made to 
+rectify such problems, whic h may include the movement of candidates, and 
+delay in test. Conduct of a re -exam is at the absolute discretion of the test 
+conducting body. Candidates will not have any claim for a re -test. Candidates 
+not willing to move or not willing to participate in t he delayed process of test 
+delivery shall be summarily rejected from the process.  
+ 
+10. You will have to affix your signature and left thumb impression, in the space 
+provided in the call letter, in the presence of the Invigilator. Candidates must 
+bring their own blue/black stamp pad for affixing thumb impressions. 
+ 
+11. If the examination is held in more than one session for a post/stream, the 
+scores across various sessions will be equated to adjust for slight differences 
+in the difficulty level of different test batteries used across sessions. More than 
+one session is required if the nodes' capacity is less or some technical 
+disruption takes place at any center or for any candidate. 
+ 
+12. Anyone found to be disclosing, publishing, reproducing, transmitting, storing, 
+or f acilitating transmission and storage of test contents in any form or any 
+information therein in whole or part thereof or by any means verbal or written, 
+electronic or mechanical or taking away the papers supplied in the 
+examination hall or found to be in u nauthorised possession of test content is 
+likely to be prosecuted. 
+ 
+13. Instances of providing incorrect information and/or process violation by a 
+candidate detected at any stage of the selection, the process will lead to 
+disqualification of the candidate from the selection process and he/she will not 
+be allowed to appear in any recruitment process of the SEBI in the future. If 
+such instances go undetected during the current selection process but are 
+detected subsequently, such disqualification will take place with retrospective 
+effect. 
+ 
+14. (i) The PwBD candidates, who want to use the facility of the scribe, MUST go 
+through the detailed advertisement which is available on the SEBI website 
+and carefully READ the instructions. 
+ 
+Page 6 of 6 
+ 
+(ii) These candidates are also required  to submit a Joint 
+Undertaking/Declaration form (Scribe declaration form) that can be 
+downloaded from the SEBI website. 
+ 
+CONDUCT OF EXAM-RELATED INSTRUCTIONS  
+ 
+ 
+1. Candidate is required to report at the exam venue strictly as per the time slot 
+mentioned in the Call Letter. It is expected that candidates strictly adhere to 
+this time slot – as entry into the exam venue will be provided based upon the 
+individual’s time slot ONLY. Candidates should report at least 60 minutes 
+before the Reporting time indicated on the call Letter.  
+ 
+2. Mapping of ‘Candidate Roll Number and the Lab Number’ will NOT be 
+displayed outside the exam venue, but the same will be intimated to the 
+candidates individually at the time of the entry of the candidate to the exam 
+venue. 
+ 
+3. Candidates will be permitted to carry only the following items with them 
+into the venue: 
+a. Mask (optional) 
+b. Personal transparent water bottle (Candidate should bring his / her 
+water bottle) 
+c. A simple pen and ink stamp pad   
+d. Exam-related documents (Call Letter and Photocopy of the ID card 
+stapled with it, ID Card in Original.) 
+e. Call Letter should be brought with the Photocopy of the Photo ID 
+stapled with it. Original ID (same as Photocopy) is also to be brought 
+for verification. The name on the ID and the Call Letter should be the 
+same.  
+f. In case of Scribe Candidates - Scribe form duly filled and signed with 
+Photograph affixed. 
+        No other Items are permitted inside the venue. 
+ 
+4. Candidate should not share any of their personal belonging/material with 
+anyone. 
+ 
+5. Candidate should maintain safe social distance with one another. 
+ 
+6. Candidate should stand in the row as per the instructions provided at venue. 
+ 
+7. Candidates will be required to switch off their mobile phones, and deposit it at 
+the designated location, to be collected while exiting. 
+ 
+8. Post Examination Control:- 
+● On completion of the examination, the candidates should move out in an 
+orderly manner without crowding as instructed by the venue staff. 
+WISH YOU GOOD LUCK 

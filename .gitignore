@@ -1,0 +1,31 @@
+# ===== OS =====
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+.DS_Store
+
+# ===== Editor / IDE =====
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# ===== Python / Jupyter =====
+__pycache__/
+*.py[cod]
+*.egg-info/
+.ipynb_checkpoints/
+.venv/
+venv/
+env/
+.env
+
+# ===== Office temp files =====
+~$*.docx
+~$*.xlsx
+~$*.pptx
+
+# ===== Misc =====
+*.log
+*.tmp

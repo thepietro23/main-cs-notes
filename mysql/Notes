@@ -1,0 +1,9 @@
+docker ps
+
+docker exec -it mysql-container mysql -u root -p
+
+root123
+
+
+>>>
+GROQ_API_KEY=<redacted - store in environment variable, not in notes>
