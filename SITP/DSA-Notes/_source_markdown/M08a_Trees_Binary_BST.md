@@ -557,8 +557,8 @@ right subtree = build(rest preorder slice,  inorder[i+1:])
 
 - **Tree** = hierarchical, one root, no cycles; **binary** = ≤ 2 children.
 - Height `h` ⇒ ≤ `2^(h+1)−1` nodes; balanced ⇒ height O(log n).
-- **DFS traversals** differ by root position: pre (R,L,R), in (L,R,R… i.e.
-  L,Root,R), post (L,R,Root). **Inorder of a BST = sorted.** All O(n), O(h) space.
+- **DFS traversals** differ by root position: pre (Root,L,R), in (L,Root,R),
+  post (L,R,Root). **Inorder of a BST = sorted.** All O(n), O(h) space.
 - **BFS / level-order** uses a queue → "level by level" problems.
 - **BST:** left < node < right; search/insert/delete O(h); delete has 3 cases
   (leaf / one child / two children → inorder successor).
