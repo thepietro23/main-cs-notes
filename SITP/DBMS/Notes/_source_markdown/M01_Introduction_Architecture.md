@@ -210,6 +210,40 @@ Instance  ≈  all the answer sheets filled in by students today
 > frequently — schema or instance?"* → **instance**. Or *"The logical schema is
 > also called ___"* → **conceptual schema**.
 
+### Worked example — one schema, many instances
+
+The distinction becomes obvious the moment you see it in code. The **schema** is
+the `CREATE TABLE` line; the **instance** is whatever rows happen to be inside
+*right now*:
+
+```sql
+-- SCHEMA (the design; you write this once)
+CREATE TABLE Student (
+    roll_no INT PRIMARY KEY,
+    name    VARCHAR(50),
+    cgpa    DECIMAL(3,2)
+);
+```
+
+```text
+INSTANCE at 9:00 AM                    INSTANCE at 5:00 PM (after edits)
+roll_no | name  | cgpa                 roll_no | name  | cgpa
+--------+-------+-----                 --------+-------+-----
+  1     | Asha  | 8.10                    1    | Asha  | 8.40   <- cgpa updated
+  2     | Ravi  | 7.55                    3    | Meera | 9.02   <- new row inserted
+                                         (row 2 was deleted)
+```
+
+The `CREATE TABLE` (schema) never changed all day — but the **instance** changed
+with *every* INSERT / UPDATE / DELETE. That is the whole point: **schema = stable
+type, instance = live value.** A database has **exactly one schema** but passes
+through **countless instances** over its lifetime.
+
+> **Interview follow-up:** *"Can two databases share a schema but differ in
+> instance?"* → **Yes** — a `staging` and a `production` database can run the
+> identical `CREATE TABLE` script (same schema) yet hold completely different
+> rows (different instances). This is exactly how test environments are built.
+
 ---
 
 ## 1.4 The Three-Schema (ANSI-SPARC) Architecture
@@ -542,6 +576,72 @@ transfer), it guarantees **ACID**:
 > **Memory hook:** **OLTP = writes/operations** (running the business). **OLAP =
 > reads/analysis** (understanding the business).
 
+> **Two more dimensions exams love (append to the table above mentally):**
+> **Users** — OLTP serves *thousands* of clerks/customers; OLAP serves a *handful*
+> of analysts/managers. **Response time** — OLTP must reply in *milliseconds*;
+> OLAP queries may run for *seconds to minutes*. **Source of data** — OLTP is the
+> *original* source; an OLAP **data warehouse** is *loaded (ETL) from* the OLTP
+> systems. **Backup criticality** — losing OLTP data loses live business; OLAP can
+> be re-derived from OLTP.
+
+---
+
+## 1.6C Why Concurrency Control & Recovery Are Needed (Teasers)
+
+Two of the eight file-system problems in §1.1 — *concurrent-access anomalies* and
+*atomicity problems* — are so important that every serious DBMS dedicates a whole
+subsystem to each. Full treatment is in **Modules 9 (Transactions/Concurrency)**
+and **10 (Recovery)**, but here is the *why*, made concrete, so the rest of the
+course has a hook to hang on.
+
+### Why concurrency control? (the "lost update" walkthrough)
+
+Two ATM clerks read the same account (balance ₹1000) at the same moment and each
+adds a deposit. Without control, one update silently vanishes:
+
+```text
+Time  Clerk A (deposit ₹200)      Clerk B (deposit ₹500)      balance on disk
+----  -------------------------   -------------------------   ---------------
+ t1   read balance = 1000                                          1000
+ t2                               read balance = 1000              1000
+ t3   compute 1000+200 = 1200                                      1000
+ t4                               compute 1000+500 = 1500          1000
+ t5   write 1200                                                   1200
+ t6                               write 1500  (overwrites!)        1500
+```
+
+The correct final balance is **₹1700**, but the result is **₹1500** — Clerk A's
+₹200 deposit is **lost**. This is the **lost-update anomaly**. **Concurrency
+control** (locking / MVCC, Module 9) prevents it by forcing the two transactions
+to interleave *safely*, as if they ran one after another (**serializability**).
+
+> **First principles:** the bug is not in either program — each is correct alone.
+> It appears *only* because they overlap. That is why concurrency is a DBMS
+> responsibility, not the application programmer's.
+
+### Why recovery? (the "crash mid-transfer" walkthrough)
+
+A transfer of ₹500 is two writes: **debit** A, then **credit** B. If the machine
+crashes *between* them, money simply disappears:
+
+```text
+BEGIN transfer ₹500 from A to B
+   debit  A: 1000 -> 500     ✓ written
+   *** POWER FAILURE ***           <- credit to B never happened
+   credit B: ...             ✗
+Result without recovery: A lost 500, B gained nothing → ₹500 vanished.
+```
+
+The **recovery manager** (Module 10) fixes this using a **write-ahead log**: on
+restart it sees the transfer never reached `COMMIT`, so it **undoes** the partial
+debit, restoring A to ₹1000. This is **atomicity** (the *A* in ACID) in action —
+*all-or-nothing.* Durability (the *D*) is the mirror image: once `COMMIT` is
+logged, a crash can never *lose* the change.
+
+> **Exam nugget:** concurrency control protects against *other transactions*
+> (interference); recovery protects against *failures* (crashes/power loss).
+> Different enemies, different subsystems — do not confuse them.
+
 ---
 
 ## 1.7 DBMS Architecture — How the Engine Is Built Inside
@@ -620,6 +720,26 @@ Let's trace `SELECT name FROM Customer WHERE city = 'Mumbai';` end to end:
 - monitors and **tunes performance** (indexes, query plans),
 - handles **backup and recovery**,
 - plans **capacity** and upgrades.
+
+### Data Administrator (DA) vs Database Administrator (DBA) — a tested distinction
+
+Textbooks (and GfG) split the role into two, and exams ask the difference:
+
+| | **Data Administrator (DA)** | **Database Administrator (DBA)** |
+|---|------------------------------|----------------------------------|
+| Nature | **managerial / policy** | **technical / operational** |
+| Scope | the whole **organization's data** | a **specific database** + its apps |
+| Focuses on | data *meaning*, governance, standards, privacy policy | install, tune, index, backup, secure the DBMS |
+| Sample task | "define the enterprise data-retention policy" | "add an index, fix a slow query, restore a backup" |
+
+> **One-liner:** *DA decides **what** the data should be and **who may** use it
+> (policy); DBA makes the database **run** it (technology).* In small companies one
+> person wears both hats.
+
+**Common DBA sub-specializations (interview colour):** an **Administrative/System
+DBA** (installs, patches, backs up), an **Application DBA** (owns schemas & tuning
+for one app), and a **Performance DBA** (indexes, query plans, capacity). Larger
+shops split these; smaller shops merge them.
 
 > **Interview line:** "The DBA owns the *non-functional* guarantees — security,
 > availability, performance, recoverability — so application teams can focus on
@@ -742,6 +862,20 @@ accountable for all of this.
     (reads)**.
 19. A *minimal* super key is called a ___ → **candidate key**.
 20. Data spread across many sites but appearing as one DB = ___ DBMS → **distributed**.
+21. Two transactions both read balance ₹1000, add deposits, and write back; one
+    deposit disappears. This anomaly is called ___ → **lost update** (fixed by
+    **concurrency control**).
+22. A crash occurs after debiting A but before crediting B in a transfer. Which
+    subsystem restores atomicity, and how? → **recovery manager**, by **undoing**
+    the partial transaction using the **write-ahead log**.
+23. Concurrency control protects against ___; recovery protects against ___. →
+    **other transactions (interference)** / **failures (crashes)**.
+24. Which role is *managerial and org-wide* — DA or DBA? → **Data Administrator
+    (DA)**; the **DBA** is technical and database-specific.
+25. Same `CREATE TABLE` script, different rows — same ___, different ___. →
+    **schema** / **instance**.
+26. An OLAP data warehouse is typically *loaded from* which kind of system? →
+    **OLTP** (via ETL).
 
 **Fill in the blanks**
 - The architecture with external/conceptual/internal levels is the ___ → *ANSI-SPARC three-schema*.

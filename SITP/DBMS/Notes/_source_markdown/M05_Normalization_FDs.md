@@ -339,6 +339,244 @@ time — slow.
 
 ---
 
+## 5.11A Fully Worked GATE Numericals (do these until they're automatic)
+
+This is the highest-yield section for SEBI/RBI/GATE. Everything above is theory;
+here we grind the **exact keystrokes** of each computation. Cover the answer, redo
+it, and check.
+
+### (a) Closure X⁺ — every step shown
+
+> *Given:* `R(A,B,C,D,E,F)`, `F = { A→B, B→C, CD→E, A→D, E→F }`. Compute `A⁺`.
+
+```text
+A⁺ = {A}                          start
+  A→B?  A⊆A⁺  → add B             A⁺ = {A,B}
+  A→D?  A⊆A⁺  → add D             A⁺ = {A,B,D}
+  B→C?  B⊆A⁺  → add C             A⁺ = {A,B,C,D}
+  CD→E? C,D⊆A⁺ → add E            A⁺ = {A,B,C,D,E}
+  E→F?  E⊆A⁺  → add F             A⁺ = {A,B,C,D,E,F}
+nothing left to add               A⁺ = {A,B,C,D,E,F} = ALL  ⟹ A is a SUPER KEY
+```
+
+> **Reading the result:** since `A⁺` = all attributes, `A` alone determines
+> everything → `A` is a super key, and (being a single attribute) it is the
+> **candidate key**. If we ask "does `A → E` hold?", the answer is **yes** because
+> `E ∈ A⁺`.
+
+### (b) Finding ALL candidate keys — the LHS/RHS/BOTH classification
+
+> *Given:* `R(A,B,C,D,E)`, `F = { AB→C, C→D, D→B, A→E }`. Find all candidate keys.
+
+**Step 1 — classify each attribute** by where it appears across the FDs:
+
+```text
+attr | appears on LHS? | appears on RHS? | verdict
+-----+-----------------+-----------------+---------------------------
+ A   |      yes        |      no         | ESSENTIAL (only-LHS) → in EVERY key
+ B   |      yes        |     yes (D→B)   | middle
+ C   |      yes        |     yes (AB→C)  | middle
+ D   |      yes        |     yes (C→D)   | middle
+ E   |      no         |     yes (A→E)   | only-RHS → NEVER in any key
+```
+
+**Step 2 — close the essential set `{A}`:**
+
+```text
+A⁺ = {A}; A→E → {A,E}.  AB→C needs B (∉); C→D needs C (∉); D→B needs D (∉).
+A⁺ = {A,E} ≠ ALL  → A alone is NOT a key. Must add a middle attribute.
+```
+
+**Step 3 — add middle attributes minimally** (try `A` + one of B/C/D):
+
+```text
+(A,B)⁺: A,B,E then AB→C→C then C→D→D → {A,B,C,D,E} = ALL  ✓ candidate key
+(A,C)⁺: A,C,E then C→D→D then D→B→B then AB→C(have) → {A,B,C,D,E} = ALL  ✓ candidate key
+(A,D)⁺: A,D,E then D→B→B then AB→C→C → {A,B,C,D,E} = ALL  ✓ candidate key
+```
+
+Each is **minimal** (A alone failed, and A is mandatory). No need to test triples —
+supersets of these are super keys, not candidate keys.
+
+> **Answer: candidate keys = {A,B}, {A,C}, {A,D}.**
+> **Prime attributes** = union of all candidate keys = **{A,B,C,D}**;
+> **non-prime** = **{E}**.
+
+### (c) Minimal (canonical) cover — all three passes worked
+
+> *Given:* `F = { A→BC, B→C, AB→C, A→B }`. Find a minimal cover.
+
+**Pass 1 — singleton RHS** (split multi-attribute right sides):
+
+```text
+A→BC  ⟹  A→B , A→C
+Now F = { A→B, A→C, B→C, AB→C, A→B }   (A→B appears twice — keep the set)
+Working set: { A→B, A→C, B→C, AB→C }
+```
+
+**Pass 2 — remove extraneous LHS attributes** (only FDs with composite LHS: `AB→C`):
+
+```text
+Is A extraneous in AB→C?  compute B⁺ under current set = {B,C}. C ∈ B⁺ → YES, A extraneous.
+  ⟹ AB→C becomes B→C  (already present) → drop the duplicate.
+Working set: { A→B, A→C, B→C }
+```
+
+**Pass 3 — remove redundant FDs** (drop each FD, test if still derivable):
+
+```text
+Remove A→C. Under { A→B, B→C }:  A⁺ = {A,B,C} ⊇ {C}. So A→C is REDUNDANT → drop it.
+Remove A→B. Under { B→C }:       A⁺ = {A}. B ∉ A⁺ → NOT redundant → keep.
+Remove B→C. Under { A→B }:       B⁺ = {B}. C ∉ B⁺ → NOT redundant → keep.
+```
+
+> **Answer: minimal cover = { A→B, B→C }.** (Process order matters — a different
+> order can give a different but equivalent minimal cover.)
+
+### (d) Lossless-join check — the tableau (matrix / chase) method, 3 tables
+
+The two-table rule (`R1∩R2` is a key of a piece) can't handle 3+ pieces. Use the
+**tableau**. Rows = decomposed tables, columns = all attributes. Put `aⱼ`
+(distinguished) where the table has that attribute, `bᵢⱼ` (non-distinguished)
+elsewhere. Then apply FDs: whenever two rows agree on the LHS, equate their RHS
+symbols (prefer an `a`). **Lossless iff some row becomes all-`a`.**
+
+> *Given:* `R(A,B,C,D,E)`, decomposition `R1(A,B)`, `R2(B,C,D)`, `R3(D,E)`;
+> `F = { A→BC, C→D, D→E }`.
+
+**Initial tableau:**
+
+```text
+        A     B     C     D     E
+R1(AB)  a1    a2    b13   b14   b15
+R2(BCD) b21   a2    a3    a4    b25
+R3(DE)  b31   b32   b33   a4    a5
+```
+
+**Apply FDs (equate RHS where LHS matches):**
+
+```text
+C→D: rows R2,R3? they must agree on C first — only R2 has a3, R3 has b33 → no match yet.
+D→E: R2 and R3 agree on D (both a4) → equate E: R2's b25 := a5 (take the 'a').
+       R2 row: b21  a2  a3  a4  a5
+C→D:  (no two rows share the same C symbol) → no change.
+A→BC: (only R1 has a1 for A) → no change.
+```
+
+Recheck: does any row have all `a`'s? Not yet. But note **this particular
+decomposition is lossy** — no row reaches all-`a`, and there is no way to recover
+`A` into R2/R3 (A only appears in R1, and nothing determines A). 
+
+> **Contrast — a lossless case:** decompose the same R as `R1(A,B,C)`, `R2(C,D)`,
+> `R3(D,E)`. `R1∩R2 = C`, and `C→D` makes C a key of R2; `R2∩R3 = D`, and `D→E`
+> makes D a key of R3; `A→BC` makes A a key of R1. Rejoining pairwise on a key each
+> time is lossless at every step → **lossless overall.** (In the tableau, row R1
+> would fill to all-`a`.)
+
+> **Fast two-table reflex (use whenever there are exactly 2 pieces):** `R(A,B,C)`
+> → `R1(A,B), R2(A,C)`. Common attr = `A`. If `A→BC` (so `A` is a key), then
+> `(R1∩R2)→R1` holds → **lossless**. If instead only `B→C`, common attr `A`
+> determines neither whole piece → **lossy** (spurious tuples on rejoin).
+
+### (e) Dependency-preservation check — worked both ways
+
+**Rule:** decomposition `{R1,…,Rk}` preserves `F` iff `(F1 ∪ F2 ∪ … ∪ Fk)⁺ = F⁺`,
+where each `Fᵢ` is the projection of F onto `Rᵢ` (the FDs whose attributes all fit
+inside `Rᵢ`). Practically: for **each** original FD `X→Y`, check `Y ⊆ X⁺` computed
+**using only the preserved (local) FDs**.
+
+> *Given:* `R(A,B,C)`, `F = { A→B, B→C, C→A }`, decomposition `R1(A,B)`, `R2(B,C)`.
+> Projected FDs: `R1` keeps `A→B` (and `B→A` since `C→A,A→B,B→C` imply `B→A`…);
+> `R2` keeps `B→C` (and `C→B`).
+
+Check each original FD using the **local** FDs `{A→B, B→A, B→C, C→B}`:
+
+```text
+A→B : A⁺(local) = {A,B,...} ⊇ {B}  ✓
+B→C : B⁺(local) = {B, A, C}          ⊇ {C}  ✓
+C→A : C⁺(local) = {C, B, A}          ⊇ {A}  ✓  (C→B→A via local FDs)
+```
+
+All three hold → **dependency-preserving** (and, since `B` is a key of R2 via
+`B→C`, also lossless).
+
+> *Counter-example (dependency LOST):* `R(A,B,C)`, `F = { AB→C, C→B }`, candidate
+> keys `{A,B}` and `{A,C}`. BCNF forces splitting off `C→B`: `R1(C,B)`, `R2(A,C)`.
+> Now `AB→C` is **not** checkable on either single table (no table holds A, B, C
+> together). So this BCNF decomposition is **lossless but NOT
+> dependency-preserving** — the canonical illustration of the 3NF-vs-BCNF trade-off,
+> continued in §5.11B.
+
+---
+
+## 5.11B Worked "Normalize this relation to BCNF" — every step
+
+This is the capstone worked example: take one relation and drive it up the ladder,
+showing why BCNF may **lose** a dependency that 3NF keeps.
+
+> *Given:* `R(A,B,C)` with `F = { AB→C, C→B }`.
+> (Read it as: `(student, course)→instructor` and `instructor→course` — the classic
+> "one instructor teaches one course, a course has many instructors" case.)
+
+**Step 1 — candidate keys.**
+
+```text
+AB⁺ = {A,B} → AB→C → {A,B,C} = ALL      → {A,B} is a super key (and minimal) → key
+AC⁺ = {A,C} → C→B  → {A,B,C} = ALL      → {A,C} is a super key (and minimal) → key
+A⁺  = {A} (nothing fires) ≠ ALL; B⁺={B}; C⁺={C,B}≠ALL → no single-attr key
+```
+
+**Candidate keys = {A,B} and {A,C}.** Prime = {A,B,C} (all three). Non-prime = ∅.
+
+**Step 2 — 2NF?** Non-prime set is empty, so there is **no** partial dependency
+possible → **2NF holds** (trivially).
+
+**Step 3 — 3NF?** Test each FD: "LHS a super key OR every RHS attr prime".
+
+```text
+AB→C : AB is a super key ✓
+C→B  : C is NOT a super key, BUT B is PRIME (B ∈ key {A,B}) ✓  ← 3NF escape hatch
+```
+
+Both pass → **R is in 3NF.**
+
+**Step 4 — BCNF?** Test each FD: "LHS must be a super key" (no prime escape).
+
+```text
+AB→C : AB is a super key ✓
+C→B  : C is NOT a super key (C⁺={C,B}≠ALL) ✗   ← BCNF VIOLATION
+```
+
+So **R is 3NF but not BCNF** — the violating FD is `C→B`.
+
+**Step 5 — BCNF decomposition** on the violating `C→B`. Split on `C⁺ = {C,B}`:
+
+```text
+R1 = (C⁺)          = R1(C, B)          -- holds C→B
+R2 = R − (C⁺ − C)  = R(A,B,C) − {B}    = R2(A, C)
+```
+
+- **Lossless?** `R1∩R2 = {C}`, and `C→B` makes `C` a key of `R1(C,B)` → **lossless** ✓
+- **Dependency-preserving?** Projected FDs: R1 gives `C→B`; R2 gives nothing useful
+  about `AB→C`. The original FD **`AB→C` is now un-checkable on any single table**
+  (no table has A, B, C together) → **dependency preservation LOST** ✗
+
+> **The trade-off, made concrete:**
+> - Stay at **3NF** `R(A,B,C)` → keep **both** `AB→C` and `C→B` checkable, but
+>   tolerate the small redundancy that `C→B` causes.
+> - Go to **BCNF** `{R1(C,B), R2(A,C)}` → zero anomaly from `C→B`, but you can no
+>   longer enforce `AB→C` without a **join** (or a costly assertion/trigger).
+>
+> This is *exactly* why the standard advice is **"decompose to 3NF (Bernstein
+> synthesis, always lossless + dependency-preserving); go to BCNF only when the
+> leftover redundancy is genuinely unacceptable."**
+
+> **Exam phrasing to memorize:** *"Give a relation that is in 3NF but not in
+> BCNF."* → `R(A,B,C)`, `AB→C`, `C→B`. *"Show its BCNF decomposition loses a
+> dependency."* → split on `C→B` into `(C,B)` and `(A,C)`; `AB→C` is lost.
+
+---
+
 ## 5.12 Higher Normal Forms — 4NF (MVD) and 5NF
 
 ### Multivalued dependency & 4NF
@@ -496,6 +734,22 @@ partial dependency?".
     **chase / tableau (matrix)**.
 16. Given candidate key `{A,B}` in `R(A,B,C,D)`, number of super keys = ___ →
     **2^(4−2) = 4** (every super key must contain both A and B).
+17. In `R(A,B,C,D,E,F)` with `A→B, B→C, CD→E, A→D, E→F`, is `A` a candidate key? →
+    **Yes** — `A⁺` = all six attributes (see §5.11A(a)).
+18. To make a right-hand side single-attribute is which minimal-cover step? →
+    **Step 1 (singleton RHS)**.
+19. In `AB→C`, if `B⁺ = {B,C}`, is `A` extraneous on the LHS? → **Yes** (you can
+    derive C from B alone, so `AB→C` reduces to `B→C`).
+20. A BCNF decomposition of `R(A,B,C)` with `AB→C, C→B` produces which two tables? →
+    **`(C,B)` and `(A,C)`** (splitting on the violating `C→B`).
+21. That BCNF split loses which dependency? → **`AB→C`** (not checkable on a single
+    table).
+22. To test lossless join for a decomposition into **3 tables**, which method? →
+    **tableau / chase (matrix)** — lossless iff some row becomes all-distinguished.
+23. Prime attributes of `R(A,B,C)` with keys `{A,B}` and `{A,C}` = ___ → **{A,B,C}**
+    (union of all candidate keys → all attributes prime → automatically 3NF).
+24. Dependency preservation is tested by ___ → checking `(F1∪…∪Fk)⁺ = F⁺`, i.e. every
+    original FD `X→Y` still has **`Y ⊆ X⁺` using only the projected (local) FDs**.
 
 **True/False**
 - Every relation in BCNF is in 3NF. → **True** (BCNF is stricter).
@@ -552,6 +806,11 @@ FACTS: every binary (2-attr) relation is in BCNF. all-prime relation is in 3NF.
 ALL candidate keys: essential attrs(only-LHS/no-FD) MUST be in every key; add middle attrs minimally.
 FD-SET EQUIVALENCE: F ≡ G iff each implies the other (check every FD via closures).
 LOSSLESS for 3+ tables: chase/tableau (matrix) algorithm.
+  tableau: rows=pieces, cols=attrs; a=has-attr, b=not; apply FDs (equate RHS on matching LHS);
+  LOSSLESS iff some ROW becomes ALL-a.
+DEP-PRESERVATION: (F1∪...∪Fk)+ = F+  i.e. every X->Y has Y⊆X+ using only PROJECTED/local FDs.
+3NF-not-BCNF canonical: R(A,B,C), AB->C, C->B. keys {A,B},{A,C}. C->B ok in 3NF (B prime)
+  but fails BCNF (C not superkey). BCNF split (C,B)+(A,C) => LOSES AB->C (dep-pres lost).
 #SUPERKEYS given a key: every super key must CONTAIN a candidate key (count subsets that do).
 
 HIGHEST NF method: find candidate keys -> mark prime/non-prime -> test 2NF,3NF,BCNF in order.

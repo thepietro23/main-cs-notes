@@ -95,6 +95,34 @@ How the engine finds the rows matching a `WHERE`:
 > full scan. So the optimizer uses an index only when **few** rows match (low
 > selectivity), and prefers a scan when **many** match.
 
+### 8.3A Worked selection cost — scan vs binary vs index (same table)
+
+Put concrete numbers on all four algorithms so the trade-off is unmistakable.
+
+> **Given:** relation `r` with `b_r = 10,000` blocks, `n_r = 1,000,000` tuples,
+> `100` tuples/block, a B+-tree of **height 3** on attribute `A`, and
+> `V(A, r) = 500` distinct values → equality `A = a` matches `≈ 2,000` records.
+
+```text
+(a) Linear scan (equality):        b_r = 10,000 block transfers.
+(b) Binary search (r sorted on A):
+      ⌈log2(b_r)⌉ + (matching blocks − 1)
+      = ⌈log2 10000⌉ + (⌈2000/100⌉ − 1) = 14 + 19 = 33 transfers.
+(c) PRIMARY B+-tree index (equality on the SORT key):
+      height + matching blocks = 3 + 20 = 23 transfers   (matches are contiguous).
+(d) SECONDARY B+-tree index (equality on a NON-sort key):
+      height + number of matching RECORDS = 3 + 2000 = 2003 transfers
+      (each matching record is a separate RANDOM I/O — scattered).
+```
+
+> **The punchline (selectivity decides):** the **secondary** index costs 2000
+> *random* seeks — cheaper in raw transfers than a 10,000-block scan, but in
+> seek-heavy terms a **sequential scan can win**. If instead only **5** records
+> matched (large `V(A,r)`), the secondary index costs `3 + 5 = 8` — a **1000×**
+> win. **Rule:** secondary index for **few** matches; scan for **many**. A
+> **primary** index stays cheap because matches are **contiguous** (count *blocks*,
+> not *records*).
+
 ---
 
 ## 8.4 Sorting — External Merge Sort
@@ -121,6 +149,29 @@ Total block transfers     = b_r × ( 2 × (#merge passes) + 1 )
 > *(Convention note: this counts block transfers only; some GATE variants also add
 > the **seek** cost or count the final write separately — use your exam's
 > convention.)*
+
+### 8.4A Worked numerical — external merge sort passes & I/O
+
+> **Given:** `b_r = 10,000` blocks to sort, `M = 11` memory buffer blocks.
+
+```text
+(1) Initial sorted runs = ⌈ b_r / M ⌉ = ⌈ 10000 / 11 ⌉ = ⌈909.1⌉ = 910 runs.
+(2) Merge fan-in = M − 1 = 10 runs per pass (1 buffer reserved for output).
+(3) Number of merge passes = ⌈ log_(M−1)(#runs) ⌉ = ⌈ log10 910 ⌉ = ⌈2.96⌉ = 3.
+      pass 1: 910 runs → ⌈910/10⌉ = 91 runs
+      pass 2: 91  runs → ⌈91/10⌉  = 10 runs
+      pass 3: 10  runs → 1 sorted file ✔
+(4) Total block transfers = b_r × (2 × passes + 1)
+      = 10000 × (2×3 + 1) = 10000 × 7 = 70,000 transfers.
+```
+
+> **What each term means:** the `+1` is the single **read** during run creation;
+> every merge pass reads **and** writes all `b_r` blocks → `2 × passes`. **More
+> memory helps twice:** a bigger `M` makes **fewer, larger** initial runs *and* a
+> **wider** merge fan-in (`M−1`), cutting passes. With `M = 101` here: runs
+> `= ⌈10000/101⌉ = 100`, passes `= ⌈log100 100⌉ = 1`, transfers
+> `= 10000×(2×1+1) = 30,000` — less than half. *(If a whole pass's runs fit in one
+> merge, one pass suffices.)*
 
 ---
 
@@ -184,6 +235,43 @@ Joins are the most expensive and most optimized operation. Learn each algorithm'
 > **The two big exam facts:** (1) **nested-loop is the only one that does non-equi
 > joins** (`>`, `<`, `≠`); (2) **hash and sort-merge** are equi-only but **fastest
 > at scale**. Always make the **smaller** relation the **outer/build** side.
+
+### 8.5A Worked join-cost comparison (all algorithms, one dataset)
+
+Cost every algorithm on **one** dataset so the ranking is concrete. This is the
+exact shape of the GATE numerical.
+
+> **Given:** `r` has `b_r = 1,000` blocks, `n_r = 20,000` tuples.
+> `s` has `b_s = 4,000` blocks, `n_s = 100,000` tuples. Memory `M` is small.
+> An index on `s`'s join key costs `c = 4` block reads per lookup.
+
+```text
+Simple (tuple) nested-loop, r outer:  n_r × b_s + b_r
+      = 20,000 × 4,000 + 1,000 = 80,001,000  transfers.   (catastrophic)
+
+Block nested-loop, r outer (smaller):  b_r × b_s + b_r
+      = 1,000 × 4,000 + 1,000 = 4,001,000  transfers.
+Block nested-loop, s outer (WRONG side):  b_s × b_r + b_s
+      = 4,000 × 1,000 + 4,000 = 4,004,000  → confirms: smaller = outer.
+
+Indexed nested-loop (index on s), r outer:  b_r + n_r × c
+      = 1,000 + 20,000 × 4 = 81,000  transfers.
+
+Sort-merge (must sort both; assume 1 merge pass each ≈ 3·b for sort+read):
+      ≈ 3·b_r + 3·b_s + (b_r + b_s)  ≈ 3,000 + 12,000 + 5,000 = 20,000 transfers.
+      If BOTH already sorted:  b_r + b_s = 5,000 transfers.   (cheapest possible)
+
+Hash join (grace / partitioned):  3 × (b_r + b_s)
+      = 3 × 5,000 = 15,000  transfers.
+```
+
+> **Ranking (this dataset):** pre-sorted sort-merge (5,000) < hash (15,000) <
+> sort-merge with sorting (20,000) < indexed NL (81,000) ≪ block NL (4,001,000) ≪
+> simple NL (80M). **Take-aways:** (1) **block** NL is ~`b_s×` cheaper than
+> **simple** NL (blocks vs tuples). (2) An **index on the inner** relation turns a
+> multi-million-transfer join into ~81k. (3) At scale, **hash** and **sort-merge**
+> dominate — but only for **equi-joins**; for `r.a > s.b` you are stuck with
+> nested-loop. (4) Always put the **smaller** relation outer/build.
 
 ### Other operations (projection, duplicate elimination, set operations)
 
@@ -255,6 +343,40 @@ These rules **preserve the result** (the relations are equal) but change the
 
 > **Why it's called "heuristic":** these rules *usually* help, applied without
 > computing exact costs — fast to apply, "good enough" plans.
+
+### 8.7A Worked heuristic transformation (with the numbers)
+
+Here is the full before/after query-tree rewrite and *why* it wins, quantified.
+
+![The naive tree joins the whole CUSTOMER and ORDER tables and only then filters; the optimized tree pushes σ down to filter CUSTOMER first and pushes π to the leaves, so the join sees far fewer, narrower tuples.](images/186_heuristic_pushdown.png)
+
+**Query:** `SELECT c.name FROM CUSTOMER c JOIN ORDER o ON c.cid=o.cid WHERE
+c.city='Mumbai';`
+
+```text
+NAIVE tree (evaluate bottom-up):
+      π name ( σ city='Mumbai' ( CUSTOMER ⋈ ORDER ) )
+   → build the FULL join first, then throw away most rows.
+
+OPTIMIZED tree (push σ down, then π down):
+      π name ( ( σ city='Mumbai'(CUSTOMER) ) ⋈ ORDER )
+   → filter CUSTOMER to Mumbai FIRST; the join now sees a tiny left input.
+   → also push π: project each leaf to just {cid, name} / {cid} before the join.
+```
+
+> **Quantify it.** Say `CUSTOMER` = 100,000 rows, `ORDER` = 1,000,000 rows, and
+> only `2,000` customers are in Mumbai. The **naive** plan joins 100,000 × (their
+> orders) ≈ a **million-row** intermediate result, then filters down to a handful.
+> The **optimized** plan first shrinks CUSTOMER to `2,000` rows (`σ` licensed by *σ
+> distributes over ⋈* since `city` is a CUSTOMER-only predicate), so the join
+> probes with **50× fewer** left tuples. **Same answer, a fraction of the I/O.**
+
+> **Legality note (exam trap):** you may push `σ` below a join **only if** the
+> predicate references attributes of **one** side. A predicate spanning both
+> relations (`c.x = o.y`) is a **join condition** and stays at the join. Likewise,
+> push `π` down **only if** you keep every attribute the join/higher operators
+> still need (here `cid` must survive the projection even though the final output
+> is only `name`).
 
 ---
 
@@ -405,6 +527,35 @@ optimizer pick a full scan over an index?" (selectivity); "what is pipelining?".
 > - Block nested-loop (s outer): `b_s × b_r + b_s = 500×100 + 500 = 50,500`.
 > → Making the **smaller (r)** the outer is cheaper. ✔ Simple nested-loop (r outer)
 >   would be `n_r × b_s + b_r = 1000×500 + 100 = 500,100` — **10× worse**.
+
+**More MCQs (8.3A–8.7A additions):**
+
+17. Secondary-index equality selection cost? → **height + number of matching
+    records** (one random I/O per match).
+18. Primary-index equality selection cost? → **height + matching blocks** (matches
+    contiguous).
+19. External merge sort: number of initial runs? → **⌈b_r / M⌉**. Merge fan-in? →
+    **M − 1**.
+20. External merge sort total transfers? → **b_r × (2·passes + 1)**.
+21. Doubling memory M in external sort helps how, exactly? → **fewer initial runs
+    AND wider fan-in → fewer passes**.
+22. Indexed nested-loop cost? → **b_r + n_r × c** (c = one index lookup cost).
+23. You may push σ below a join only when the predicate uses ___ → **attributes of
+    one side only**.
+24. A predicate on attributes of **both** relations stays where? → **at the join
+    (it is the join condition)**.
+25. Pushing π down is legal only if you keep ___ → **every attribute the higher
+    operators (join, output) still need**.
+
+**Numerical 2 (do it — external merge sort):**
+> `b_r = 10,000`, `M = 11`. Runs `= ⌈10000/11⌉ = 910`; passes
+> `= ⌈log10 910⌉ = 3`; transfers `= 10000×(2·3+1) = 70,000`. ✔
+
+**Numerical 3 (do it — join cost):**
+> `b_r = 1000`, `n_r = 20000`, `b_s = 4000`, index lookup `c = 4`.
+> Block NL (r outer) `= 1000×4000 + 1000 = 4,001,000`. Indexed NL
+> `= 1000 + 20000×4 = 81,000`. Grace hash `= 3×(1000+4000) = 15,000`. Sort-merge if
+> pre-sorted `= 1000 + 4000 = 5,000` (the winner). ✔
 
 ---
 

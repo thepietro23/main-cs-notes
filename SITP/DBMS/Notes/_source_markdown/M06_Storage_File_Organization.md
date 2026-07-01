@@ -177,6 +177,42 @@ NOT a backup** — it won't save you from an accidental `DELETE` or corruption.
 > overhead. RAID 5 needs **≥3** disks; RAID 6 needs **≥4**. RAID 10 (a.k.a. 1+0) is
 > the go-to for databases needing both performance and redundancy.
 
+### RAID read/write performance & the RAID-5 write penalty (worked)
+
+The comparison table above covers capacity and fault tolerance. Exams and interviews
+also ask about **relative read/write speed** — and this is where RAID 5's famous
+**write penalty** appears.
+
+| RAID | Read speed | Write speed | Why |
+|------|-----------|-------------|-----|
+| **0** | **fastest** (n-way parallel) | **fastest** (n-way parallel) | no redundancy work |
+| **1** | fast (read from either copy) | ~1 disk (write **both** mirrors) | mirror write in parallel |
+| **5** | fast (stripe, n−1 data disks) | **slow — 4 I/Os per small write** | read-modify-write parity |
+| **6** | fast | **slower — 6 I/Os per small write** | **two** parities to update |
+| **10** | fast (stripe + pick a mirror) | fast (stripe, mirror in parallel) | no parity math |
+
+> **The RAID-5 write penalty, step by step.** To change **one** data block you must
+> keep parity correct. Using the XOR identity `P_new = P_old ⊕ D_old ⊕ D_new`, a
+> single small (sub-stripe) write costs **4 physical I/Os**:
+>
+> ```text
+> 1. READ  the old data block   D_old
+> 2. READ  the old parity block P_old
+> 3. WRITE the new data block   D_new
+> 4. WRITE the new parity block P_new = P_old ⊕ D_old ⊕ D_new
+> ```
+>
+> So one logical write = **2 reads + 2 writes = 4 I/Os** (RAID 5), or **3 reads + 3
+> writes = 6 I/Os** (RAID 6, two parities). This is why **RAID 5/6 are chosen for
+> read-heavy** workloads and **RAID 10** (no parity math, ~2 I/Os per write) for
+> **write-heavy** databases.
+
+> **Worked numerical:** an application issues **100 small random writes/second** to a
+> RAID 5 array. Physical I/O load = `100 × 4 = 400 I/Os/s` on the array (vs `100 × 2
+> = 200 I/Os/s` on RAID 10). If each disk sustains ~100 IOPS, RAID 5 needs the
+> array to absorb 400 I/Os — the extra parity traffic is the hidden cost the "usable
+> capacity" number never shows.
+
 ---
 
 ## 6.5 Records & Blocking
@@ -214,6 +250,30 @@ Number of blocks to store r records = ceil( r / bfr )
 > **Exam trap:** with **unspanned** blocking, `bfr = floor(B/R)` and the leftover
 > `B − (bfr × R)` bytes per block are wasted. With **spanned**, there's essentially
 > no waste but you pay pointer-chasing overhead.
+
+### Worked example — unspanned vs spanned block counts (side by side)
+
+> *Given:* Block `B = 1024 B`, Record `R = 300 B`, `r = 10` records. Compare.
+
+**Unspanned** (record never crosses a boundary):
+
+```text
+bfr        = floor(B/R)  = floor(1024/300) = floor(3.41) = 3 records/block
+#blocks    = ceil(r/bfr) = ceil(10/3)      = 4 blocks
+wasted/blk = B − bfr×R   = 1024 − 3×300    = 124 bytes wasted per block
+```
+
+**Spanned** (records packed end-to-end, splitting across blocks as needed):
+
+```text
+total data = r × R = 10 × 300 = 3000 bytes
+#blocks    = ceil(total / B) = ceil(3000 / 1024) = ceil(2.93) = 3 blocks
+```
+
+> **Takeaway:** spanned stored the same 10 records in **3 blocks** vs unspanned's
+> **4** — it reclaimed the 124 wasted bytes/block, at the cost of pointer-chasing
+> when a record straddles a boundary. (Ignoring block-header/pointer overhead, which
+> a strict GATE question may add.)
 
 ---
 
@@ -278,6 +338,86 @@ hit the disk.
 > **Force vs no-force / steal vs no-steal** (preview of Module 10 recovery): these
 > policies decide *when* dirty pages reach disk relative to `COMMIT`. They directly
 > shape what the recovery manager must undo/redo. We cover them in Module 10.
+
+### 6.7A Buffer replacement — worked LRU & CLOCK traces
+
+Given a page-reference string and a fixed number of frames, exams ask you to trace
+the pool and **count hits/misses (faults)**. Here is the exact procedure for the two
+you must know.
+
+> *Given:* **3 frames**, reference string `A B C A D B E A B` (pages requested in
+> order). All frames start empty.
+
+**LRU (evict the Least Recently Used page):**
+
+```text
+ref | frames (MRU on right)      | hit? | evicted
+----+----------------------------+------+--------
+ A  | A                          | miss |
+ B  | A B                        | miss |
+ C  | A B C                      | miss |          (pool now full)
+ A  | B C A                      | HIT  |          (A moves to MRU)
+ D  | C A D                      | miss | B        (B was least recent)
+ B  | A D B                      | miss | C
+ E  | D B E                      | miss | A
+ A  | B E A                      | miss | D
+ B  | E A B                      | HIT  |
+----+----------------------------+------+--------
+Hits = 2, Misses = 7,  hit ratio = 2/9 ≈ 22%
+```
+
+**CLOCK (second-chance — an LRU approximation using a reference bit):** frames sit in
+a ring; each has a **use bit**. On a miss, advance the hand; if the current frame's
+use bit is 1, clear it to 0 and move on; evict the first frame found with use bit 0.
+On a hit, just set that frame's use bit to 1.
+
+```text
+ref | ring [page:usebit]        | action
+----+---------------------------+-------------------------------------------
+ A  | [A:1]                     | miss, load A
+ B  | [A:1][B:1]                | miss, load B
+ C  | [A:1][B:1][C:1]           | miss, load C (full)
+ A  | [A:1][B:1][C:1]           | HIT, set A:1 (already 1)
+ D  | hand sees A:1→0, B:1→0,   | miss: give A,B second chances (clear bits),
+    |   C:1→0, wraps A:0 → evict|   evict A; load D → [D:1][B:0][C:0]
+ B  | [D:1][B:1][C:0]           | HIT, set B:1
+ E  | hand at D:1→0, B:1→0,     | miss: clear D,B; C:0 → evict C;
+    |   C:0 → evict C           |   load E → [D:0][B:0][E:1]
+ A  | hand at D:0 → evict D     | miss, load A → [A:1][B:0][E:1]
+ B  | [A:1][B:1][E:1]           | HIT, set B:1
+----+---------------------------+-------------------------------------------
+Hits = 3, Misses = 6 (CLOCK approximates LRU with O(1) bookkeeping, no timestamps)
+```
+
+> **Belady's anomaly (exam trap):** with **FIFO**, adding *more* frames can
+> sometimes *increase* misses. **LRU and CLOCK are stack algorithms — immune** to
+> Belady's anomaly. This is a common one-line MCQ.
+
+### 6.7B Why a DBMS may NOT use plain LRU — sequential flooding
+
+Plain LRU is great for **random/repeated** access but can be **catastrophic** for
+one particular DBMS pattern.
+
+> **Sequential flooding.** A large **sequential scan** (or a full-table join over a
+> table bigger than the pool) reads pages `P1, P2, P3, …` once each and never reuses
+> them soon. Under LRU, each new page evicts an **older, actually-hot** page (e.g. an
+> index root, a small dimension table). The scan "floods" the pool with
+> use-once pages, evicting exactly the pages that *would* have been reused — so the
+> hit ratio **collapses**, and worse, adding frames barely helps because the scan is
+> bigger than any reasonable pool.
+
+> **How real DBMSs defend against it:**
+> - **MRU** for the scanned relation — evict the *most recently used* scan page,
+>   since it's the least likely to be needed again (protects the rest of the pool).
+> - **Scan-resistant / ring buffers:** PostgreSQL routes large sequential scans and
+>   `VACUUM` through a small **ring buffer** (a few hundred KB) so a big scan can't
+>   evict the whole `shared_buffers`.
+> - **2Q / LRU-K / ARC:** admission policies that separate "seen once" from "seen
+>   again", keeping frequently-reused pages and cheaply discarding scan-only pages.
+
+> **One-liner (interview):** *"Why not just use LRU in a database?"* → **sequential
+> flooding** — a big scan of use-once pages evicts the hot working set; DBMSs use
+> MRU / scan-resistant ring buffers / LRU-K to avoid it.
 
 ---
 
@@ -363,12 +503,34 @@ organization trade-offs; LRU.
 14. A block is an integer multiple of the ___ size → **sector**.
 15. Reading the next block while processing the current one is called ___ →
     **double buffering / prefetching (read-ahead)**.
+16. How many physical I/Os does **one small write** cost on RAID 5? → **4** (read
+    old data + read old parity + write new data + write new parity).
+17. How many for RAID 6? → **6** (two parities: 3 reads + 3 writes).
+18. Which RAID is best for a **write-heavy** DB and why? → **RAID 10** — no parity
+    read-modify-write, ~2 I/Os per write.
+19. Block=1024 B, Record=300 B, **unspanned** — records per block? → `floor(1024/300)
+    =` **3** (124 bytes/block wasted).
+20. Same as above but **spanned**, 10 records — number of blocks? →
+    `ceil(10×300/1024) =` **3** (vs 4 unspanned).
+21. Reference string `A B C A D B E A B`, 3 frames, **LRU** — number of hits? → **2**
+    (see §6.7A).
+22. Which replacement policies are **immune to Belady's anomaly**? → **LRU and CLOCK**
+    (stack algorithms); **FIFO is not**.
+23. Why might a DBMS avoid plain LRU? → **sequential flooding** — a large scan of
+    use-once pages evicts the hot working set.
+24. What does CLOCK use instead of timestamps? → a **use (reference) bit** per frame,
+    giving each page a "second chance" before eviction.
+25. PostgreSQL's defense against a big scan trashing `shared_buffers`? → a small
+    **ring buffer** for large sequential scans / `VACUUM`.
 
 **True/False**
 - RAID 0 can survive one disk failure. → **False**.
 - Rotational latency averages a full rotation. → **False** (½ rotation).
 - Hashed files are great for range queries. → **False**.
 - Heap files have O(1) insert. → **True**.
+- A single small write on RAID 5 costs 4 I/Os. → **True** (read-modify-write parity).
+- LRU suffers Belady's anomaly. → **False** (FIFO does; LRU/CLOCK are stack algorithms).
+- Sequential flooding makes LRU evict hot pages during a big scan. → **True**.
 
 **Numerical (do it):**
 > Disk: 10,000 RPM, avg seek 4 ms, transfer rate 100 MB/s, block = 4 KB.
@@ -399,6 +561,8 @@ RAID (availability, NOT backup):
   6 stripe+2parity min4 (n-2)/n survives2
   10 mirror+stripe min4 50% survives 1/mirror   (speed+safety)
   XOR parity: P=A1^A2^A3 ; lost A3 = A1^A2^P.   (RAID 2/3 obsolete)
+  WRITE PENALTY: 1 small write = RAID5 -> 4 I/Os (read D,read P,write D,write P);
+    RAID6 -> 6 I/Os. => RAID5/6 for READ-heavy; RAID10 (~2 I/Os/write) for WRITE-heavy.
   DOUBLE BUFFERING / prefetch: read next block while CPU processes current (sequential scans).
 
 RECORDS: fixed(offset = i*size) vs variable(length prefix/delimiter).
@@ -411,6 +575,10 @@ FILE ORG: HEAP(unordered, O(1) insert, O(n) search) | SEQUENTIAL(ordered, O(log 
 
 BUFFER MANAGER: pool of pages in RAM. hit(~100ns)/miss(~10ms). DIRTY bit(flush before evict),
   PIN(don't evict in use). Replacement: LRU(common), MRU, CLOCK, FIFO(Belady). maximize hit ratio.
+  CLOCK = use-bit second-chance (O(1), approximates LRU). LRU/CLOCK immune to Belady; FIFO not.
+  SEQUENTIAL FLOODING: big scan of use-once pages evicts hot set under LRU -> DBMS uses MRU /
+    ring buffer (Postgres) / LRU-K / 2Q / ARC for scan resistance.
+  SPANNED vs UNSPANNED #blocks: spanned = ceil(r*R / B); unspanned = ceil(r / floor(B/R)).
 ```
 
 ### Flash cards

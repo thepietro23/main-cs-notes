@@ -275,6 +275,49 @@ ORDER BY avg_sal DESC;
 > yet — repeat the aggregate expression (`HAVING COUNT(*) > 2`) instead of its
 > alias. (Same reason aliases fail in `WHERE`; they *do* work in `ORDER BY`.)
 
+### 4.6A GROUP BY + HAVING vs WHERE — worked with sample output
+
+Trace the exact clauses `WHERE → GROUP BY → HAVING` on real rows so you can see
+each one act on a different thing (rows, then groups).
+
+```text
+emp
+name | dept | sal
+A    | HR   | 30
+B    | HR   | 50
+C    | HR   | 0        <- sal = 0
+D    | IT   | 90
+E    | IT   | 70
+F    | FIN  | 60
+
+Query:
+  SELECT   dept, COUNT(*) AS n, AVG(sal) AS avg_sal
+  FROM     emp
+  WHERE    sal > 0          -- (1) drop ROWS first: removes C
+  GROUP BY dept             -- (2) form groups
+  HAVING   COUNT(*) >= 2    -- (3) drop GROUPS with < 2 members
+  ORDER BY avg_sal DESC;
+
+Step 1 (WHERE sal>0): rows kept = A,B,D,E,F   (C removed BEFORE grouping)
+Step 2 (GROUP BY dept):
+   HR  -> {A(30), B(50)}      n=2  avg=40
+   IT  -> {D(90), E(70)}      n=2  avg=80
+   FIN -> {F(60)}             n=1  avg=60
+Step 3 (HAVING n>=2): FIN dropped (only 1 member)
+Step 6 (ORDER BY avg_sal DESC):
+
+Output:
+  dept | n | avg_sal
+  IT   | 2 | 80
+  HR   | 2 | 40
+```
+
+> **The key contrast this makes concrete:** `WHERE` removed a *row* (C) **before**
+> grouping — so C never even reaches its group's average. `HAVING` removed a whole
+> *group* (FIN) **after** grouping. Put a row-level test in `WHERE`, a group-level
+> (aggregate) test in `HAVING`. Note also HR's avg is `40`, computed over the two
+> **surviving** rows — proof that `WHERE` ran first.
+
 ---
 
 ## 4.7 Subqueries (Nested Queries)
@@ -299,6 +342,34 @@ SELECT name FROM emp e
 WHERE sal > (SELECT AVG(sal) FROM emp WHERE dno = e.dno);   -- above own-dept average
 ```
 
+**Worked (same data, both queries) — see the difference in the output:**
+
+```text
+emp
+name | dno | sal
+A    | 10  | 60
+B    | 10  | 40
+C    | 20  | 90
+D    | 20  | 50
+
+Non-correlated: sal > (SELECT AVG(sal) FROM emp)   -- global avg = 60
+  inner runs ONCE  ->  60.  Keep rows with sal > 60:
+  result = { C(90) }
+
+Correlated: sal > (SELECT AVG(sal) FROM emp WHERE dno = e.dno)  -- per-dept avg
+  inner RE-RUNS per outer row, using that row's dno:
+    A: dept-10 avg = 50 -> 60 > 50 ✓
+    B: dept-10 avg = 50 -> 40 > 50 ✗
+    C: dept-20 avg = 70 -> 90 > 70 ✓
+    D: dept-20 avg = 70 -> 50 > 70 ✗
+  result = { A(60), C(90) }
+```
+
+> **The tell (how to spot a correlated subquery):** the inner query **references a
+> column of the outer table** (here `e.dno`). That reference forces it to re-run
+> per outer row, so it cannot be evaluated on its own. A non-correlated subquery
+> has no such reference and could be run and cached once.
+
 **By result shape & operators:**
 
 - **Scalar** (1 row, 1 col) → use with `=, >, <`.
@@ -320,6 +391,58 @@ SELECT dname FROM dept d WHERE EXISTS (SELECT 1 FROM emp e WHERE e.dno = d.dno);
 > **Division in SQL** ("students who took **every** course") = **double `NOT
 > EXISTS`** — there is no required course that the student has *not* taken. This is
 > the SQL realization of algebra's `÷`.
+
+### 4.7A The `NOT IN` + NULL trap and `EXISTS`/`NOT EXISTS` — worked
+
+This is one of the most-tested and most-real SQL bugs. Watch a `NOT IN` return
+**zero rows** the moment its subquery contains a single NULL.
+
+![The NOT IN + NULL trap: NOT IN over a set containing NULL becomes (...) AND UNKNOWN, which is never TRUE, so WHERE keeps no rows.](images/146_not_in_null_trap.png)
+
+```text
+emp                       dept
+name | dno                dno
+A    | 10                 10
+B    | 20                 NULL     <- dept table has a NULL dno
+C    | 30
+
+Goal: employees whose dno is NOT in dept.
+
+BUGGY:  SELECT name FROM emp
+        WHERE dno NOT IN (SELECT dno FROM dept);   -- {10, NULL}
+
+Expand for employee C (dno=30):
+   30 NOT IN (10, NULL)
+ = 30<>10  AND  30<>NULL
+ = TRUE    AND  UNKNOWN
+ = UNKNOWN            -> WHERE keeps only TRUE, so C is dropped too.
+Result: 0 rows   (even though C clearly should qualify)
+```
+
+Why: `x <> NULL` is **UNKNOWN** (three-valued logic — Module 3). `NOT IN` is an
+`AND` of `<>` tests, and `anything AND UNKNOWN` can never be TRUE. So a single NULL
+in the list poisons **every** row's result.
+
+```text
+CORRECT (NULL-safe) with NOT EXISTS:
+  SELECT name FROM emp e
+  WHERE NOT EXISTS (SELECT 1 FROM dept d WHERE d.dno = e.dno);
+Result: { C }        -- correct
+
+NOT EXISTS just asks "did any matching row appear?" (a plain yes/no), so a NULL in
+dept.dno simply fails to match and is ignored — no UNKNOWN poisoning.
+```
+
+> **`EXISTS` vs `IN` performance:** both can be correct (when no NULLs), but
+> `EXISTS` short-circuits at the **first** matching inner row, which is often
+> cheaper for a correlated check. For **anti**-queries ("not in / no match"),
+> **always reach for `NOT EXISTS`** — it is both NULL-safe and usually optimizer-friendly.
+
+> **Quick NULL truth reminder (full tables in Module 3):** `NOT UNKNOWN =
+> UNKNOWN`; `TRUE OR UNKNOWN = TRUE`; `FALSE AND UNKNOWN = FALSE`; everything else
+> touching UNKNOWN stays UNKNOWN. `WHERE` and `HAVING` keep a row **only when the
+> predicate is TRUE** — UNKNOWN behaves like FALSE for filtering, but *not* under
+> `NOT` (that is the whole trap above).
 
 ---
 
@@ -407,6 +530,38 @@ FROM emp;
 > **The famous "Nth highest salary" interview question:** wrap the window query and
 > filter `WHERE rnk = 2` (use `DENSE_RANK` if ties should count as one salary).
 > This is the modern, clean answer; the older way is a nested subquery (§4.15).
+
+**Worked — ranking and a running total on the same data:**
+
+```text
+emp
+name | dept | sal
+A    | IT   | 90
+B    | IT   | 90       <- tie with A
+C    | IT   | 70
+D    | HR   | 50
+
+SELECT name, dept, sal,
+  ROW_NUMBER() OVER (PARTITION BY dept ORDER BY sal DESC) AS rn,
+  RANK()       OVER (PARTITION BY dept ORDER BY sal DESC) AS rnk,
+  DENSE_RANK() OVER (PARTITION BY dept ORDER BY sal DESC) AS drnk,
+  SUM(sal)     OVER (PARTITION BY dept ORDER BY sal DESC) AS running
+FROM emp;
+
+Output:
+ name|dept|sal| rn |rnk|drnk|running
+  A  | IT | 90|  1 | 1 |  1 |  180   <- 90+90 (both tied rows in this frame)
+  B  | IT | 90|  2 | 1 |  1 |  180
+  C  | IT | 70|  3 | 3 |  2 |  250   <- 180+70
+  D  | HR | 50|  1 | 1 |  1 |   50   <- HR partition restarts
+```
+
+- `ROW_NUMBER` always gives distinct `1,2,3` (tie broken arbitrarily).
+- `RANK` gives `1,1,3` (ties share, then **skips**); `DENSE_RANK` gives `1,1,2`
+  (ties share, **no skip**).
+- `SUM(...) OVER (... ORDER BY ...)` is a **running total** within each partition;
+  tied rows share the same cumulative value. Drop the `ORDER BY` inside `OVER` and
+  `SUM` becomes a **whole-partition total** on every row instead.
 
 ## 4.9 Constraints
 
@@ -552,6 +707,45 @@ data separately from code), grant least-privilege DB accounts, and validate
 input. This is the **#1 web vulnerability** historically and a frequent SEBI-IT /
 interview topic.
 
+### 4.14A Parameterized queries — how they actually stop injection
+
+The core idea: **send the SQL text and the user data over separate channels**, so
+the input can never be *parsed as code*. The query is compiled (prepared) once with
+`?`/`$1` placeholders; the driver then binds each value as a pure data literal.
+
+```text
+VULNERABLE (string-built):  the input becomes part of the SQL text -> parsed as code
+  "... WHERE name = '" + input + "'"
+
+SAFE (parameterized):       the ? is a data slot -> input is never parsed as SQL
+```
+
+```sql
+-- Prepared/parameterized (placeholders vary by driver: ?, $1, :name)
+PREPARE q AS SELECT * FROM users WHERE name = $1;   -- SQL fixed & compiled first
+EXECUTE q('  '' OR ''1''=''1  ');   -- the whole string is one literal value
+   -- searches for a user literally named  ' OR '1'='1  -> returns nobody
+```
+
+With a placeholder, `' OR '1'='1` is treated as **the value to compare**, not as
+extra SQL — the `OR` never becomes an operator, so the attack collapses.
+
+**Defense-in-depth (state these together in an interview):**
+
+| Layer | What it does |
+|-------|--------------|
+| **Parameterized / prepared statements** | the primary fix — data can't become code |
+| **Stored procedures (with bound params)** | same benefit *if* they don't build dynamic SQL internally |
+| **Least-privilege DB account** | a compromised query can't `DROP`/read other tables |
+| **Input validation / allow-lists** | reject obviously bad input early (defense in depth, not a substitute) |
+| **ORMs / query builders** | parameterize by default — but raw-SQL escape hatches re-open the risk |
+
+> **Interview trap:** "Isn't *escaping* the input enough?" — Escaping is fragile
+> (easy to miss a spot, charset edge cases). **Parameterized queries are the
+> correct, complete fix**; escaping is a fallback only where placeholders truly
+> can't be used (e.g. a dynamic table/column name — which should then be checked
+> against an allow-list, never bound as a parameter).
+
 ---
 
 ## 4.15 Exam, Interview & Coding Perspectives
@@ -595,6 +789,12 @@ injection"; "INNER vs LEFT JOIN".
 16. `NATURAL JOIN` joins on ___ → **all columns with the same name** (keeps one copy).
 17. `COUNT(DISTINCT dept)` returns ___ → **number of distinct non-NULL departments**.
 18. Can a SELECT alias be used in HAVING? → **No** (HAVING runs before SELECT).
+19. `dno NOT IN (SELECT dno FROM dept)` returns no rows even for valid data. Why? → the subquery contains a **NULL**, so `NOT IN` yields **UNKNOWN** for every row; use **NOT EXISTS**.
+20. In `... WHERE sal > (SELECT AVG(sal) FROM emp WHERE dno = e.dno)`, the subquery runs ___ → **once per outer row** (it's **correlated** via `e.dno`).
+21. `WHERE` removes rows ___ grouping; `HAVING` removes groups ___ grouping → **before** / **after**.
+22. `SUM(sal) OVER (PARTITION BY dept ORDER BY sal)` computes a ___ → **running (cumulative) total** per department.
+23. The primary defense against SQL injection is ___ → **parameterized / prepared statements** (input sent as data, not code).
+24. For an aggregate over rows with NULLs, `AVG(sal)` divides `SUM(sal)` by ___ → the count of **non-NULL** sal values.
 
 **True/False**
 - `AVG(col)` divides by the number of rows including NULLs. → **False** (ignores NULLs).

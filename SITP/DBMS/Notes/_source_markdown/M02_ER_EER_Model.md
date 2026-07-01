@@ -277,6 +277,27 @@ Notice the numbers appear on **opposite sides** in the two notations! In Chen th
 Same reality, mirrored placement — *this is precisely what trips students up in
 exams.*
 
+**Why they mirror: "look-across" vs "look-here".** This is the deep reason, and it
+is a genuine GATE/theory point:
+
+- **Chen's `1/N/M` labels are "look-across".** The number on EMPLOYEE's line tells
+  you how many DEPTs an employee sees *across* the relationship (one), so you write
+  it near the *far* entity.
+- **`(min,max)` is "look-here" (a.k.a. Merise notation).** The pair on EMPLOYEE
+  reads "looking *from here*, how many relationship instances does one employee take
+  part in?" → `(1,1)`. It attaches to the *near* entity.
+
+That single difference — *count the partner across* vs *count my own participation
+here* — is exactly why the two numbers land on opposite ends for the same reality.
+
+> ⚠️ **Ternary trap (why min-max wins for degree ≥ 3):** for **binary**
+> relationships the two styles are interchangeable (just swap the labels). But for
+> a **ternary**, look-across breaks down — from one entity there are **two** other
+> entities "across", so a single number is ambiguous. Therefore **participation on
+> n-ary relationships must use the look-here `(min,max)` convention.** If an exam
+> shows `(min,max)` on a ternary, read each pair as "this entity's minimum and
+> maximum participation in the whole ternary relationship."
+
 ### Recursive (unary) relationships — in depth
 
 A **recursive relationship** connects an entity set **to itself**. The same entity
@@ -304,6 +325,44 @@ EMPLOYEE(emp_id PK, name, dept_id, mgr_id FK -> EMPLOYEE.emp_id)
 
 > **Exam trap:** the *degree* of a recursive relationship is **1 (unary)** — it
 > involves **one** entity set, even though two "lines" are drawn to it.
+
+### Ternary vs binary — and why you *can't always* decompose (worked example)
+
+A tempting shortcut is to replace one **ternary** (degree-3) relationship with
+**three binary** ones. Usually this **loses information** — a classic GATE trap.
+
+**Setup.** A `SUPPLIER` **supplies** a `PART` **for** a `PROJECT`. The real fact
+is a *triple*: "Supplier S supplies Part P to Project J." Suppose reality is:
+
+```text
+SUPPLIES (the true ternary fact)
+supplier | part  | project
+---------+-------+---------
+   S1    |  P1   |   J1
+   S2    |  P1   |   J2
+```
+
+Now try to store it as **three separate binary** relationships instead:
+
+```text
+CAN_SUPPLY (S–P)   USED_IN (P–J)     WORKS_ON (S–J)
+S1 | P1            P1 | J1           S1 | J1
+S2 | P1            P1 | J2           S2 | J2
+```
+
+**The information is now gone.** Join the three binaries back and you *also*
+generate the false triple **(S1, P1, J2)** — the binaries say "S1 can supply P1",
+"P1 is used in J2", "S1... " but they can **no longer distinguish** whether S1
+actually supplies P1 *specifically to* J2. The ternary carried a fact that no
+combination of pairwise facts can reconstruct.
+
+> **First-principles rule:** a ternary is decomposable into binaries **only** when
+> the triple is functionally implied by its pairs (a "lossless" special case). In
+> general it is **not** — so keep it ternary and map it by **rule 8** (§2.9): one
+> table with **all three keys** as the composite primary key.
+
+> **Exam nugget:** *"Can every ternary relationship be replaced by three binary
+> relationships?"* → **No** (generally lossy). This one-word answer wins marks.
 
 ### Concept check
 
@@ -578,6 +637,15 @@ expects.*
 9. A relationship of degree 3 is called ___ → **ternary**.
    *(When mapped → one table with all THREE keys as the composite primary key.)*
 10. `name = {first, last}` is a ___ attribute → **composite**.
+11. Can every ternary relationship be replaced by three binary relationships
+    without losing information? → **No** (generally lossy; keep it ternary).
+12. In `(min,max)` notation on an EMPLOYEE that belongs to exactly one DEPT, the
+    EMPLOYEE end reads ___ → **(1,1)**.
+13. Chen's `1/N/M` labels use the ___ convention; `(min,max)` uses the ___
+    convention → **look-across** / **look-here (Merise)**.
+14. For a **ternary** relationship, which convention must participation constraints
+    use, and why? → **look-here `(min,max)`** — because there are *two* entities
+    "across", so look-across is ambiguous.
 
 **True/False**
 - A 1:N relationship is mapped to its own table. → **False** (FK on the N side).

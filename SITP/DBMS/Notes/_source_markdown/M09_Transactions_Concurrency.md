@@ -146,6 +146,57 @@ operations** to transform it into a **serial** schedule.
 > conflict and you'd get T1→T2→T3 (acyclic) → serializable, serial order **T1, T2,
 > T3**.
 
+### 9.6A Fully worked check (schedule → graph → verdict → serial order)
+
+Let's do one end-to-end the way GATE asks it. Given the schedule (subscript = txn):
+
+```text
+S :  r1(A) ; r2(A) ; w1(A) ; r3(A) ; w4(B) ; r2(B) ; w3(C) ; w4(C)
+```
+
+**Step 1 — list every conflicting pair** (different txns, same item, at least one
+write). Read-read pairs are skipped (they never conflict).
+
+```text
+Item A:  r2(A) .. w1(A)   -> T2 precedes T1's write   => edge T2 -> T1
+         w1(A) .. r3(A)   -> T1's write precedes r3   => edge T1 -> T3
+         r1(A) .. w1(A)   -> SAME txn (T1) -> ignore
+Item B:  w4(B) .. r2(B)   -> T4's write precedes r2   => edge T4 -> T2
+Item C:  w3(C) .. w4(C)   -> T3's write precedes w4   => edge T3 -> T4
+```
+
+**Step 2 — draw the precedence graph** with those edges:
+
+```text
+   T2 ──▶ T1 ──▶ T3 ──▶ T4 ──▶ T2   ??
+```
+
+**Step 3 — cycle test.** Follow the edges: `T2 → T1 → T3 → T4 → T2`. That returns to
+**T2** — a **cycle**.
+
+> **Verdict:** the graph has a cycle → schedule S is **NOT conflict serializable.**
+> (It may still be *view* serializable, but that is NP-hard to test — see §9.7.) If
+> you delete the last write `w4(C)`, the `T3→T4` edge disappears, the cycle breaks,
+> and the graph `T2→T1→T3, T4→T2` becomes acyclic → **conflict serializable**, with
+> the topological order **T4, T2, T1, T3**.
+
+![Worked precedence graph for an acyclic schedule: T1 points to T2 and T3, both point to T4; no cycle so the topological sort T1,{T2,T3},T4 is an equivalent serial schedule.](images/190_worked_precedence_graph.png)
+
+### 9.6B Counting conflict-equivalent serial schedules
+
+A frequent GATE twist: *"How many distinct serial schedules is a given schedule
+conflict-equivalent to?"* Answer = **the number of distinct topological sorts of the
+acyclic precedence graph** (a cyclic graph has **zero**).
+
+> **Worked count.** Suppose the graph is `T1→T2, T1→T3, T2→T4, T3→T4` (the acyclic
+> graph pictured above). T1 must come first, T4 last, and T2/T3 are unordered
+> relative to each other → the valid serial orders are **T1,T2,T3,T4** and
+> **T1,T3,T2,T4** = **2** conflict-equivalent serial schedules.
+
+> **Exam trap:** a conflict-serializable schedule can be equivalent to **more than
+> one** serial order (whenever the graph leaves some transactions unordered). If the
+> graph is a single chain (total order), the answer is exactly **1**.
+
 ---
 
 ## 9.7 View Serializability
@@ -236,6 +287,64 @@ Once a transaction **releases its first lock**, it can **never acquire another**
 > rollback). **Conservative 2PL** is the **only deadlock-free** variant (it grabs
 > everything upfront). **Rigorous** holds even read locks to the end.
 
+### 9.9A Worked 2PL schedule — finding the lock point
+
+Trace two transactions under **basic 2PL** and mark the **lock point** (the instant a
+txn holds its *last* lock — the peak of its growing phase). `L-S`/`L-X` = acquire
+shared/exclusive lock; `U` = unlock.
+
+```text
+ T1                         T2
+ ------------------------   ------------------------
+ L-X(A)
+ read A ; write A
+                            L-S(B)
+                            read B
+ L-X(B)  ── must WAIT (T2 holds S on B) ... granted after T2 unlocks
+ write B
+ U(A) ; U(B)   <-- shrinking begins; nothing new acquired after this
+                            U(B)
+```
+
+**Where is each lock point?**
+
+```text
+T1 lock point  =  right after L-X(B) is granted   (T1 now holds A and B — its max set)
+T2 lock point  =  right after L-S(B) is granted   (T2's only lock)
+```
+
+> **The serial order 2PL produces = the order of lock points.** T2 reaches its lock
+> point before T1 does, so the schedule is conflict-equivalent to the serial order
+> **T2, T1**. This is *why* 2PL guarantees conflict serializability: no txn can grab a
+> new lock after releasing one, so lock points impose a consistent global order → the
+> precedence graph is guaranteed **acyclic**.
+
+**Same schedule under the three variants** (only *when locks are released* changes):
+
+```text
+BASIC 2PL    : T1 may U(A) as soon as it finishes A (before commit) -> a later abort
+               of T1 could cascade to any txn that read A. Cascading possible.
+STRICT 2PL   : T1 holds the X lock on A and B until it COMMITs/ABORTs, then releases.
+               No one reads T1's uncommitted writes -> cascadeless.
+RIGOROUS 2PL : T1 holds even its SHARED locks until commit -> simplest serial order,
+               least concurrency.
+```
+
+### 9.9B Why 2PL is serializable yet can still deadlock
+
+The very rule that makes 2PL correct is what lets it deadlock. In the trace above,
+imagine T2 *also* needs `L-X(A)` while still holding `S(B)`:
+
+```text
+T1 holds X(A), wants X(B)  ──▶ waits for T2
+T2 holds S(B), wants X(A)  ──▶ waits for T1
+```
+
+Neither can release (releasing would end its growing phase before it has all its
+locks) → **wait-for cycle T1↔T2 = deadlock.** So 2PL trades one problem for another:
+it **removes non-serializable schedules** but **introduces deadlock** (resolved by
+detection + victim rollback, §9.10, or avoided entirely by **conservative** 2PL).
+
 ### Lock conversion (upgrade / downgrade)
 
 A transaction can hold a weaker lock and **convert** it:
@@ -322,6 +431,22 @@ that wrote X).
 > write is **obsolete** (a newer write already exists) → **ignore it** instead of
 > rolling back. Allows more concurrency.
 
+> **Worked example (a rejected operation).** Let `TS(T1)=5`, `TS(T2)=10` (T1 older).
+> Item X starts with `R-ts(X)=0`, `W-ts(X)=0`.
+>
+> ```text
+>  op        rule check                           result
+>  --------  -----------------------------------  -------------------------------
+>  r2(X)     TS(2)=10 ≥ W-ts=0    OK              read; R-ts(X)=max(0,10)=10
+>  w1(X)     TS(1)=5  < R-ts(X)=10  VIOLATION     REJECT -> roll back T1
+> ```
+>
+> T1's write is rejected because a **younger** transaction (T2) has **already read**
+> X — letting T1 write now would make T2's earlier read incorrect (T2 read a value
+> that "should" have included T1's older write). T1 restarts with a **new, larger**
+> timestamp. Note: had it been `w1(X)` with only `W-ts(X)=12 > 5` (no younger read),
+> the **Thomas write rule** would simply **ignore** the write instead of rolling back.
+
 > **Key property:** TO is **deadlock-free** (it never waits — it rejects/rolls
 > back), but can cause **starvation** (a txn repeatedly restarted). Locking
 > (2PL) waits and risks deadlock; timestamp ordering rolls back and risks
@@ -371,6 +496,31 @@ database as of its start. Avoids dirty and unrepeatable reads with little lockin
 > **Caveat:** plain snapshot isolation can still allow **write skew** (it is **not
 > fully serializable**); **Serializable Snapshot Isolation (SSI)** closes that gap.
 > Old versions are garbage-collected later (e.g. `VACUUM` in PostgreSQL).
+
+### 9.12A Worked multiversion trace (read-ts / write-ts per version)
+
+Multiversion timestamp ordering keeps, for **each version** X_k of item X, a
+**W-timestamp** (the txn that created it) and a **R-timestamp** (largest txn that read
+it). A read of X by T is routed to the **newest version whose W-ts ≤ TS(T)** — so a
+read **never fails**; only writes can be rejected.
+
+> Let `TS(T1)=5`, `TS(T2)=10`, `TS(T3)=8`. X begins as version `X0` with `W-ts=0`.
+>
+> ```text
+>  op       routed to / action                                   versions of X
+>  -------  --------------------------------------------------   -----------------------
+>  w1(X)    T1 writes -> create X1 with W-ts=5                    X0(w0)  X1(w5)
+>  r2(X)    newest version with W-ts ≤ 10 -> X1 ; set R-ts(X1)=10 X0      X1(w5,r10)
+>  r3(X)    newest version with W-ts ≤ 8  -> X1 (reads T1's val)  X0      X1(w5,r10)
+>  w2(X)    T2 writes -> create X2 with W-ts=10                   X0  X1  X2(w10)
+> ```
+>
+> **The key win, made concrete:** `r3(X)` (an *older* reader, TS=8) still gets a
+> valid, consistent version (`X1`) **even while** T2 is writing a new version `X2` —
+> the reader and writer **never block each other**. A write is only rejected if some
+> version already has a **read-timestamp greater** than the writer's TS (its read
+> would have needed to see this write) — the multiversion analogue of the
+> single-version rule in §9.11.
 
 ---
 
@@ -516,6 +666,24 @@ between Read Committed and Serializable".
 > Schedule: `r1(A); r2(A); w1(A); w2(A)`. Conflicts: r2(A)–w1(A) → **T2→T1**;
 > w1(A)–w2(A) → **T1→T2**; r1(A)–w2(A) → **T1→T2**. Edges **T1→T2 and T2→T1** form a
 > **cycle** → **NOT conflict serializable.** ✔
+
+**More (new subsections):**
+20. If a precedence graph is a single chain of 4 nodes, how many conflict-equivalent
+    serial schedules? → **1** (a total order).
+21. If the graph is `T1→T2, T1→T3, T2→T4, T3→T4`, how many? → **2**
+    (T1,T2,T3,T4 and T1,T3,T2,T4).
+22. In 2PL, the equivalent serial order is given by the order of ___ → **lock
+    points**.
+23. Under strict 2PL, until when are exclusive locks held? → **until commit/abort**.
+24. TO: `w1(X)` with `TS(1)=5 < R-ts(X)=10` → ___ → **reject and roll back T1**.
+25. In MVCC, a read is routed to → **the newest version with W-ts ≤ TS(reader)**.
+26. Can a *read* ever be rejected in multiversion TO? → **No** (only writes can be).
+
+**Numerical (do it) — full serializability check:**
+> `S: r1(A); r2(A); w1(A); r3(A); w4(B); r2(B); w3(C); w4(C)`. Edges: **T2→T1**
+> (r2(A)–w1(A)), **T1→T3** (w1(A)–r3(A)), **T4→T2** (w4(B)–r2(B)), **T3→T4**
+> (w3(C)–w4(C)). Follow them: `T2→T1→T3→T4→T2` = **cycle** → **NOT conflict
+> serializable.** ✔
 
 ---
 

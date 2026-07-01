@@ -343,6 +343,99 @@ To apply ∪, ∩, or −, the two relations must be **union-compatible**:
 > rows; *full* keeps both. In the image above, `EMP` row `dno=99` is kept by the
 > left outer join with `dname = NULL`.
 
+#### 3.4A All join types on one tiny worked example
+
+The fastest way to lock in the join zoo is to run **all of them on the same two
+rows** and watch only the *unmatched-row handling* change.
+
+![All join types on the same two rows: inner keeps only the match, left/right/full keep the unmatched side padded with NULL.](images/145_join_types_worked.png)
+
+```text
+EMP                    DEPT
+eid | dno              dno | dname
+e1  | 10               10  | CSE
+e2  | 99               20  | ECE
+```
+
+The join key is `dno`. Only `dno = 10` matches on both sides; `e2` (dno 99) has no
+department, and department 20 (ECE) has no employee.
+
+```text
+INNER / NATURAL (EMP ⋈ DEPT)      keep only matches
+  e1 | 10 | CSE
+
+THETA  (EMP ⋈_{EMP.dno > DEPT.dno} DEPT)   any comparison, here ">"
+  e2 (dno 99) | 10 | CSE     -- 99 > 10 ✓
+  e2 (dno 99) | 20 | ECE     -- 99 > 20 ✓
+  (a theta join with "=" is exactly an EQUI join)
+
+LEFT OUTER (EMP ⟕ DEPT)           all EMP rows
+  e1   | 10 | CSE
+  e2   | 99 | NULL            -- unmatched EMP padded on DEPT's columns
+
+RIGHT OUTER (EMP ⟖ DEPT)          all DEPT rows
+  e1   | 10 | CSE
+  NULL | 20 | ECE             -- unmatched DEPT padded on EMP's columns
+
+FULL OUTER (EMP ⟗ DEPT)           all rows of both
+  e1   | 10 | CSE
+  e2   | 99 | NULL
+  NULL | 20 | ECE
+```
+
+> **Read it as one rule:** every join starts from the inner match; each *outer*
+> variant then adds back the unmatched rows of the kept side, filling the missing
+> side with NULL. **Equi join** = theta with `=`; **natural join** = equi join on
+> *same-named* attributes with one copy of the shared column kept.
+
+#### 3.4B Rename (ρ) and assignment (←) — worked
+
+**Rename `ρ`** does two jobs: (1) give a relation a new name (essential for a
+**self-join**, where you need two "copies" of one table), and (2) rename
+attributes so union-compatibility or a join condition can be stated.
+
+```text
+ρ_S(EMPLOYEE)                 -- whole relation gets alias S
+ρ_(eid→mid, name→mname)(EMPLOYEE)   -- rename attributes
+
+Self-join "each employee with their manager's name":
+  ρ_E(EMPLOYEE) and ρ_M(EMPLOYEE), then
+  π_(E.name, M.name) ( σ_(E.mgr_id = M.eid) ( E × M ) )
+```
+
+Without ρ you could not write `E.mgr_id = M.eid`, because both would just be
+`EMPLOYEE.eid` — ρ is what makes the two copies distinguishable.
+
+**Assignment `←`** names an intermediate result so a long query reads in steps
+(it does not add power — it is pure readability, like a SQL `WITH` clause):
+
+```text
+HighCgpa  ← σ_cgpa > 8 (STUDENT)
+Result    ← π_name (HighCgpa)
+```
+
+#### 3.4C Worked: translate an English query to algebra (step by step)
+
+> *English:* "Names of customers who live in 'Delhi' **and** have placed at least
+> one order over 1000, showing each name once."
+> Tables: `CUSTOMER(cid, name, city)`, `ORDERS(oid, cid, amount)`.
+
+Build it inside-out, one clause at a time:
+
+```text
+1. join the two tables on cid:        CUSTOMER ⋈ ORDERS
+2. filter rows (city AND amount):     σ_(city='Delhi' AND amount>1000) ( ... )
+3. keep just the name, de-duplicated: π_name ( ... )
+
+Final:
+  π_name ( σ_(city='Delhi' AND amount>1000) ( CUSTOMER ⋈ ORDERS ) )
+```
+
+> **Optimizer note (ties to Module 8):** push the `city='Delhi'` selection **down
+> onto CUSTOMER before the join** — `π_name( σ_amount>1000( σ_city='Delhi'(CUSTOMER)
+> ⋈ ORDERS ) )` gives the same answer but joins far fewer rows ("filter early,
+> join late").
+
 ### Division (÷) — "for ALL" queries
 
 ![Division R ÷ S returns values in R associated with every value in S — e.g. students who take all required courses.](images/31_division.png)
@@ -478,6 +571,16 @@ SQL does with **double `NOT EXISTS`**.
    (e.g. `{ t | NOT STUDENT(t) }` is *unsafe* — infinitely many tuples aren't
    students).
 
+> **Safety, worked (TRC):**
+> `{ t | ¬ ENROLLED(t) }` — "all tuples not in ENROLLED" — ranges over the
+> **entire infinite domain** (every possible name, number, string …), so it is
+> **unsafe**. The safe fix bounds every variable to an existing relation:
+> `{ t.sid | STUDENT(t) ∧ ¬∃e ( ENROLLED(e) ∧ e.sid = t.sid ) }` — "students who
+> are not enrolled." Now `t` only ranges over `STUDENT`, so the result is finite.
+> **Rule of thumb:** every free variable must be tied (positively) to a database
+> relation; a bare negation with no such anchor is the classic unsafe pattern.
+> This is exactly why SQL forces `NOT EXISTS`/`NOT IN` to reference real tables.
+
 > **SQL's lineage:** SQL is closer to **calculus** (you declare *what* you want),
 > but it is implemented by translating to **algebra** (the *how*) for execution.
 > So you write calculus-style, the engine runs algebra. Best of both worlds.
@@ -569,6 +672,11 @@ and a primary key?"; "What does `ON DELETE CASCADE` do?".
 13. PRIMARY KEY = UNIQUE + ___ + only one per table → **NOT NULL**.
 14. Super keys of `R(A,B,C,D)` with candidate keys `{A}` and `{B}` → **3·2² = 12**.
 15. SQL `GROUP BY` + `COUNT` corresponds to which extended-RA operator → **aggregation (ℱ/γ)**.
+16. A theta join whose condition uses only `=` is called a(n) ___ join → **equi** join.
+17. Which operator is essential to write a **self-join** in algebra → **rename (ρ)**.
+18. In a LEFT outer join, unmatched left rows have the ___ table's columns set to NULL → **right** (the other) table's.
+19. `{ t | ¬STUDENT(t) }` in TRC is ___ → **unsafe** (infinite result).
+20. Assignment `←` adds expressive power to algebra. → **No** — it is only for readability (naming intermediate results).
 
 **True/False**
 - `A − B = B − A`. → **False**.

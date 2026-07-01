@@ -102,6 +102,43 @@ In a distributed system you can guarantee at most **two** of:
 > partition**. When the network is healthy, a system can offer **both** C and A —
 > which is what **PACELC** captures next.
 
+### 11.3A Worked CAP scenario — a partition forces the choice
+
+Two data-centre replicas, **DC-East** and **DC-West**, hold a user's account
+balance (currently **₹1000**). The link between them **breaks** (a partition). A write
+`balance -= ₹800` lands on **DC-East**; a moment later a read arrives at **DC-West**.
+
+```text
+                 [ PARTITION: East and West cannot talk ]
+
+  DC-East:  balance = 1000 - 800 = 200   (write applied locally)
+  DC-West:  still has balance = 1000      (never got the update)
+
+  A read now hits DC-West. What should it do?
+```
+
+The system **cannot** be both consistent and available here — it must pick:
+
+```text
+ CHOOSE CP (consistency)          CHOOSE AP (availability)
+ ----------------------------     ----------------------------
+ DC-West REFUSES / errors the     DC-West ANSWERS with 1000
+ read (or blocks) because it      (stale) so the app stays up;
+ can't confirm the latest value.  reconcile when the link heals.
+ -> correct, but UNAVAILABLE.     -> available, but STALE read.
+```
+
+> **How to pick (the exam answer):** decide by the **cost of a wrong answer**.
+> - **Money / inventory / "no double-spend"** → **CP.** A stale balance could allow
+>   overdraw or double-selling; better to reject the request. *(banking, payments —
+>   e.g. an RDBMS/Spanner, HBase.)*
+> - **Feeds / carts / likes / presence** → **AP.** A slightly stale like-count or
+>   cart is harmless; staying available matters more. *(social, shopping — e.g.
+>   Cassandra, DynamoDB.)*
+>
+> When the link **heals**, an AP store must run **conflict resolution**
+> (last-write-wins, vector clocks, or CRDTs) to converge the two versions.
+
 ---
 
 ## 11.4 ACID vs BASE (and PACELC)
@@ -226,6 +263,48 @@ commit or all abort)? The **two-phase commit** protocol.
 > come. **Three-Phase Commit (3PC)** inserts a **pre-commit** phase to reduce
 > blocking, at the cost of extra messages. Modern systems often use consensus
 > protocols (**Paxos/Raft**) for fault-tolerant agreement.
+
+### 11.8A 2PC failure cases — who blocks, and why
+
+Walk the two failure points GATE/interviews probe:
+
+```text
+CASE 1 — a PARTICIPANT crashes before voting
+  Coordinator times out waiting for the vote -> treats it as VOTE-ABORT
+  -> GLOBAL ABORT to everyone.   SAFE (no blocking): the decision is made.
+
+CASE 2 — the COORDINATOR crashes AFTER participants voted YES
+  Participants have voted commit, written a prepare record, and are now holding
+  their locks, waiting for the decision. The coordinator (who alone knows the
+  outcome) is gone.
+  -> participants are BLOCKED indefinitely, still holding locks.  <-- the fatal flaw
+```
+
+> **Why case 2 is the real problem:** a "prepared" participant **cannot unilaterally
+> decide** — committing risks violating atomicity (maybe another participant voted
+> no), and aborting risks the same (maybe everyone else committed). It must wait for
+> the coordinator to recover. This is 2PC's **blocking** weakness, and it holds locks
+> the whole time. Recovery uses the coordinator's log: on restart it re-reads its
+> decision record and re-sends the outcome.
+
+**How 3PC and consensus reduce it:**
+
+```text
+ 2PC : prepare ─────────────────────────► commit      (1 decision point; blocks)
+ 3PC : prepare ──► PRE-COMMIT ──────────► commit
+       extra phase: once a participant hears "pre-commit", everyone has agreed to
+       commit, so a timed-out participant can SAFELY commit on its own
+       -> NON-BLOCKING under a single failure (but more messages, and it assumes a
+          synchronous network -> still unsafe under network partitions).
+ Raft/Paxos : replace the single coordinator with a QUORUM-elected leader, so a
+       crashed leader is simply re-elected -> fault-tolerant agreement (what modern
+       systems like Spanner/CockroachDB actually use).
+```
+
+> **Exam one-liner:** 2PC = **blocking** on coordinator failure; 3PC adds a
+> **pre-commit** phase to be **non-blocking** under a single crash but still fails
+> under **network partitions**; **Paxos/Raft** give partition-tolerant consensus via
+> leader election + quorums.
 
 ---
 
@@ -362,6 +441,24 @@ help scaling?"; "Why is 2PC problematic, and what alternatives exist (Saga, Raft
 > (**ACID/CP**); **product catalog**: document (MongoDB); **session/cart cache**:
 > key-value (Redis); **recommendations**: graph (Neo4j). This is **polyglot
 > persistence**. ✔
+
+**More (new subsections):**
+19. During a partition, a bank balance read should choose ___ ; a like-count read
+    should choose ___ → **CP / AP**.
+20. After an AP partition heals, two conflicting versions are merged via ___ →
+    **conflict resolution (last-write-wins / vector clocks / CRDTs)**.
+21. In 2PC, if a participant crashes *before voting*, the coordinator → **times out,
+    treats it as abort → GLOBAL ABORT** (safe).
+22. In 2PC, the case that causes **indefinite blocking** is → **coordinator crashes
+    after participants voted YES**.
+23. Which extra phase does 3PC add? → **pre-commit** (makes it non-blocking under a
+    single crash).
+24. Does 3PC survive network partitions? → **No** (still unsafe; use Paxos/Raft).
+
+**Scenario (do it) — CAP choice:**
+> A payment write hits DC-East during a partition; a read hits stale DC-West. Bank
+> requirement = never double-spend → choose **CP**: DC-West **refuses/blocks** the
+> read rather than return the stale ₹1000. ✔
 
 ---
 

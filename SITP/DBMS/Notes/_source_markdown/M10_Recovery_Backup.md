@@ -112,6 +112,29 @@ disk.
 > *might* be on disk, so we **must undo**. Both **redo** committed txns (their
 > changes might not have been flushed yet).
 
+### 10.3A Worked side-by-side — same log, two update strategies
+
+Take one log and one crash, and see how the recovery action differs:
+
+```text
+LOG:  ⟨T1,start⟩  ⟨T1,A,100,150⟩  ⟨T1,COMMIT⟩  ⟨T2,start⟩  ⟨T2,B,50,80⟩  --CRASH--
+```
+
+```text
+                     DEFERRED (NO-UNDO/REDO)          IMMEDIATE (UNDO/REDO)
+ T1 (committed)      REDO: set A = 150                REDO: set A = 150
+ T2 (uncommitted)   *nothing* -- T2's write never    UNDO: set B back to 50
+                     reached disk (deferred)          (its dirty page MAY be on disk)
+```
+
+> **Read the difference off the strategy.** Deferred update writes to the database
+> **only after commit**, so T2's `B=80` was never applied to disk → **nothing to
+> undo**. Immediate update **may** have flushed T2's dirty page before the crash → we
+> **must undo** it back to the old value `50`. Both strategies **REDO** the committed
+> T1, because with **NO-FORCE** even a committed txn's page may not have been flushed
+> yet. Note deferred update only needs to log the **new** value; immediate update must
+> log **both old and new** (old is needed for the undo).
+
 ### Buffer policies that decide this (STEAL / FORCE — a GATE favourite)
 
 | Policy | Meaning | Implication |
@@ -162,6 +185,27 @@ Without checkpoints, recovery would scan the **entire** log from the beginning. 
 > and recovery time. *(A naïve checkpoint briefly pauses transactions; real systems
 > use **fuzzy checkpoints** that don't stop the world.)*
 
+### 10.5A Fuzzy (non-quiescent) checkpoints — how real systems avoid stopping the world
+
+A **sharp/consistent checkpoint** must **quiesce** the system: block new
+transactions and flush *every* dirty page before writing `⟨CKPT⟩`. On a busy database
+that pause is unacceptable. A **fuzzy checkpoint** lets transactions keep running:
+
+```text
+1. write  ⟨BEGIN-CHECKPOINT⟩  to the log  (and record the active-txn list + DPT).
+2. keep processing transactions normally; flush dirty pages LAZILY in the background.
+3. once the pages that were dirty *at step 1* are safely on disk,
+   write  ⟨END-CHECKPOINT⟩  -> the checkpoint is now valid.
+```
+
+> **Why it works:** the checkpoint record only *records* what was dirty; it does **not**
+> require an instant global flush. Recovery therefore cannot assume everything before
+> `⟨CKPT⟩` is on disk — so it starts REDO from the **earliest recLSN** in the recorded
+> Dirty Page Table (this is exactly the **RedoLSN** ARIES computes, §10.6), not simply
+> from the checkpoint record. **Trade-off:** fuzzy checkpoints add near-zero runtime
+> pause but make recovery slightly more involved (it must consult the DPT). This is
+> what PostgreSQL, Oracle, and ARIES-style engines actually do.
+
 ---
 
 ## 10.6 ARIES — the Industry-Standard Algorithm
@@ -193,6 +237,56 @@ knows exactly what is/isn't applied). Recovery runs in **three phases**:
 > redo (redo everything, then selectively undo), (3) **log undos with CLRs** so
 > recovery is **idempotent** (restart-safe). Most commercial databases follow ARIES
 > in spirit.
+
+### 10.6A ARIES worked walkthrough (LSN → DPT → Txn Table → three phases)
+
+Recover from this log. `pageP` / `pageQ` are the data pages touched; `prevLSN` chains
+each txn's records; `recLSN` is the LSN that *first* dirtied a page after the last
+flush.
+
+```text
+ LSN   record                         page   prevLSN
+ ----  -----------------------------  -----  -------
+ 10    ⟨T1, start⟩                     -      -
+ 20    ⟨T1, P, old, new⟩               P      10       <- first dirties P (recLSN=20)
+ 30    ⟨CHECKPOINT⟩  (fuzzy)           -      -
+ 40    ⟨T2, start⟩                     -      -
+ 50    ⟨T2, Q, old, new⟩               Q      40       <- first dirties Q (recLSN=50)
+ 60    ⟨T2, COMMIT⟩                    -      50
+ 70    ⟨T3, start⟩                     -      -
+ 80    ⟨T3, P, old, new⟩               P      70
+ --CRASH--
+```
+
+**Phase 1 — Analysis** (scan forward from the checkpoint). Rebuild the two tables:
+
+```text
+ Dirty Page Table (DPT)          Transaction Table (TT)
+ page  recLSN                     txn  status       lastLSN
+ ----  ------                     ---  -----------  -------
+ P     20                         T2   committed    60
+ Q     50                         T3   ACTIVE       80   <- loser
+                                  (T1 finished before ckpt; not a loser)
+ RedoLSN = min(recLSN) = 20   -> Redo starts here.   Losers = {T3}
+```
+
+**Phase 2 — Redo (repeat history)** from **LSN 20** forward. Re-apply every logged
+change whose `LSN > pageLSN` of its page — **including loser T3's LSN 80** — to rebuild
+the exact pre-crash disk image. (Records already reflected on a page, i.e.
+`pageLSN ≥ LSN`, are skipped.)
+
+**Phase 3 — Undo the losers.** Walk **T3's** `prevLSN` chain backward: undo **LSN 80**
+(restore P's old value), writing a **CLR** for it, then follow prevLSN 70 to T3's
+start → done. If the system crashes *again* mid-undo, the CLR ensures LSN 80 is
+**never undone twice** (idempotent).
+
+![ARIES worked pass over a log with a checkpoint: Analysis builds the DPT and Txn table and finds RedoLSN and the loser set; Redo replays from RedoLSN including losers; Undo rolls back losers with CLRs.](images/191_aries_worked.png)
+
+> **The exam-critical takeaways of this trace:** (1) **RedoLSN = smallest recLSN in
+> the DPT** (here 20), *not* the checkpoint LSN — because with a fuzzy checkpoint a
+> page dirtied before `⟨CKPT⟩` may still not be on disk. (2) Redo **repeats history**,
+> replaying even the loser T3. (3) Undo is driven by the **prevLSN** back-pointer
+> chain and logs **CLRs** for restart-safety.
 
 ---
 
@@ -345,6 +439,25 @@ checkpoint?"; "incremental vs differential backup".
 > `⟨T3,start⟩`, `⟨T3,B,5,9⟩`, then **CRASH**.
 > → T1 committed **before** the checkpoint → **nothing**. **REDO T2** (committed
 > after the checkpoint). **UNDO T3** (active at crash → set B back to 5). ✔
+
+**More (new subsections):**
+18. A fuzzy checkpoint writes which two records around normal processing? →
+    **⟨BEGIN-CHECKPOINT⟩ and ⟨END-CHECKPOINT⟩**.
+19. Deferred update logs which value(s)? → **new only**. Immediate update? →
+    **old and new**.
+20. Same crash: an uncommitted write under **deferred** update needs → **nothing**;
+    under **immediate** update needs → **UNDO**.
+21. In ARIES, Redo starts at the ___ , not the checkpoint LSN → **RedoLSN (min
+    recLSN in the DPT)**.
+22. The Undo phase follows which back-pointer to walk a loser's changes? →
+    **prevLSN**.
+23. During Redo, a log record is skipped when → **pageLSN ≥ LSN** (already applied).
+
+**Worked (do it) — ARIES tables:**
+> Log (LSNs): `10 ⟨T1,start⟩; 20 ⟨T1,P,..⟩; 30 ⟨CKPT⟩; 40 ⟨T2,start⟩; 50 ⟨T2,Q,..⟩;
+> 60 ⟨T2,COMMIT⟩; 70 ⟨T3,start⟩; 80 ⟨T3,P,..⟩;` CRASH.
+> → DPT: `P(recLSN 20), Q(recLSN 50)` → **RedoLSN = 20**. Losers = **{T3}** (active).
+> Redo replays 20..80 (incl. T3); Undo rolls back **T3** via prevLSN, logging CLRs. ✔
 
 ---
 
