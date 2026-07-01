@@ -141,6 +141,95 @@ practice spotting it fast — that's exactly the debugging round.
 
 ---
 
+## 24.3a Dry-Run Output Questions (SEBI Phase-2 style — with answers)
+
+SEBI Phase-2 (and GATE) love **"what does this print?"** questions. You are given
+a small snippet and must **hand-trace** it. The trick: keep a tiny table of
+variables per iteration — do NOT trace in your head. Below are worked examples;
+cover the answer, trace on paper, then check.
+
+**Q1 — off-by-one loop.** What does this print?
+
+```text
+int s = 0;
+for (int i = 1; i <= 5; i++) s += i;
+print(s);
+```
+
+*Trace:* i=1→s=1, i=2→s=3, i=3→s=6, i=4→s=10, i=5→s=15. Loop is `<=5`, so i=5
+runs. **Answer: 15.** (If it were `< 5`, the answer would be 10 — this is the
+classic off-by-one trap.)
+
+**Q2 — pass-by-reference vs value.** What does this print?
+
+```text
+void f(int[] a) { a[0] = 99; }      // arrays passed by reference
+int[] x = {1, 2, 3};
+f(x);
+print(x[0]);
+```
+
+*Trace:* the array reference is shared, so `f` mutates the caller's array.
+**Answer: 99.** (A plain `int` passed by value would stay unchanged — know the
+difference for your language.)
+
+**Q3 — recursion return value.** What does `g(4)` return?
+
+```text
+int g(int n) {
+    if (n <= 1) return 1;
+    return n * g(n - 1);
+}
+```
+
+*Trace:* g(4)=4·g(3)=4·3·g(2)=4·3·2·g(1)=4·3·2·1. **Answer: 24** (this is 4!).
+Base case `n<=1` returns 1, so g(1)=1 stops the recursion.
+
+**Q4 — post-increment in an expression.** What does this print?
+
+```text
+int i = 0;
+int a = i++;      // post: use old value, then increment
+int b = ++i;      // pre: increment first, then use
+print(a, b, i);
+```
+
+*Trace:* `a = i++` → a takes the **old** i (0), then i becomes 1. `b = ++i` → i
+becomes 2 first, then b takes 2. **Answer: a=0, b=2, i=2.**
+
+**Q5 — integer division and modulo.** What does this print?
+
+```text
+for (int n = 13; n > 0; n = n / 2)
+    print(n % 2);
+```
+
+*Trace:* n=13→1, n=6→0, n=3→1, n=1→1, then n=0 stops. Prints `1 0 1 1` — this is
+13 in binary read **least-significant-bit first**. **Answer: 1 0 1 1.**
+(13 = 1101₂; the loop emits bits LSB→MSB.)
+
+**Q6 — reference aliasing bug (spot the output).** What does this print?
+
+```text
+list outer = [];
+list row = [0, 0];
+for (int i = 0; i < 3; i++) {
+    row[0] = i;
+    outer.append(row);       // BUG: appends the SAME row reference 3 times
+}
+print(outer);
+```
+
+*Trace:* every `append` stores the **same** list object, and the final loop sets
+`row[0] = 2`. So all three entries point to that one mutated list.
+**Answer: `[[2,0], [2,0], [2,0]]`** — not `[[0,0],[1,0],[2,0]]`. The fix is to
+append a **copy** (`row.clone()`), the same snapshot pitfall as backtracking.
+
+> **Memory hook:** for dry-run questions, *write a variable table row per
+> iteration.* Speed comes from neatness, not from tracing in your head.
+
+---
+
 ## 24.4 GATE/SEBI-style Conceptual MCQ Bank (samples)
 
 (Each module's "MCQs" section is your per-topic bank — ~150+ across M1–M23. A few
@@ -157,6 +246,55 @@ cross-cutting samples:)
 8. B+ tree vs hash index — which supports range queries? → **B+ tree**.
 9. Amortized cost of dynamic-array append? → **O(1)**.
 10. Minimum spanning tree algorithms? → **Kruskal, Prim**.
+
+**More samples (with a one-line *why*):**
+
+11. Time to build a heap by repeated `heapify` bottom-up? → **O(n)**. *Why:* the
+    cost sums to `Σ n/2^h · h`, a convergent series ≈ 2n — most nodes are near the
+    leaves and sift down very little.
+12. Time to sort using a heap (heapsort)? → **O(n log n)**. *Why:* build-heap is
+    O(n), but the n extract-max operations each cost O(log n).
+13. Best-case comparisons for binary search on n elements? → **1** (target is at
+    `mid`); worst case **⌊log₂ n⌋ + 1**.
+14. Stable sorts among merge / quick / heap? → **only merge sort** (of the three).
+    *Why:* quicksort and heapsort can reorder equal keys.
+15. DFS on a graph is typically implemented with a? → **stack** (or recursion);
+    BFS uses a **queue**.
+16. Which traversal of a BST gives keys in sorted order? → **inorder**; a
+    **reverse** inorder (right→root→left) gives descending order.
+17. A complete binary tree with n nodes has height? → **⌊log₂ n⌋** (**O(log n)**).
+18. Preferred collision resolution when the load factor stays low and cache
+    locality matters? → **open addressing** (linear/quadratic probing).
+19. Recurrence `T(n) = 2T(n/2) + O(1)` solves to? → **O(n)** (Master Theorem
+    case 1: leaves dominate). Contrast with `2T(n/2)+O(n)` → **O(n log n)**.
+20. Topological sort is possible **iff** the graph is a? → **DAG** (no cycle).
+
+---
+
+## 24.4a How to Attempt MCQs Under Time Pressure
+
+SEBI/GATE objective sections give you roughly **a minute or less per question**.
+Speed comes from a routine, not from rushing. Use this order:
+
+1. **Two-pass sweep.** Pass 1: answer every question you *know* in under ~30s and
+   flag the rest. Pass 2: return to the flagged ones with the time you saved. Never
+   let one hard MCQ eat five easy ones' worth of time.
+2. **Read the stem for the trap word.** Circle `NOT`, `EXCEPT`, `always`, `never`,
+   `worst-case`, `average-case`. Most wrong answers are right for a *different*
+   qualifier (e.g. quicksort is O(n log n) *average* but O(n²) *worst*).
+3. **Eliminate, don't just pick.** Cross out the obviously-wrong options first; two
+   of four are usually easy to reject, doubling your odds if you must guess.
+4. **Sanity-check complexity claims with a tiny n.** Plug n=2 or n=4 into the
+   formula/recurrence; a wrong option often breaks immediately.
+5. **Trust the standard result.** Build-heap O(n), hash worst-case O(n), inorder =
+   sorted, Bellman-Ford for negatives — these recur every year. Memorise the
+   §24.4 bank and the Module 26 cheat sheet cold.
+6. **Guess if there's no negative marking; skip only if there is.** Know your
+   exam's marking scheme *before* the day and set your risk accordingly.
+7. **Watch the clock in thirds.** At 1/3 time you should be ~1/3 done; if not,
+   speed up on recognition questions and stop over-verifying.
+
+> **Memory hook:** *Easy first, flag the rest, watch for the trap word.*
 
 ---
 
@@ -179,6 +317,12 @@ cross-cutting samples:)
 - Q: Universal follow-up? **A: "can you do better, and what does it cost?"**
 - Q: Practice format? **A: timed + think-aloud + redo + weakness log.**
 - Q: Where to track? **A: Excel Top-300 tab.**
+- Q: Best way to trace a dry-run question? **A: a variable table, one row per
+  iteration — never in your head.**
+- Q: MCQ time strategy? **A: easy first, flag the rest, watch for the trap word
+  (NOT/EXCEPT/worst-case).**
+- Q: `for (n=13; n>0; n/=2) print(n%2)` prints? **A: 1 0 1 1 (bits of 13, LSB
+  first).**
 
 ---
 

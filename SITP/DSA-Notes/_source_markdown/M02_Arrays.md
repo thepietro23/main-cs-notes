@@ -872,6 +872,133 @@ while i < n:
 
 ---
 
+## 2.10 More Must-Know Array Techniques
+
+A few more patterns that appear again and again in interviews and GATE. Each has
+a small, memorable trick.
+
+### 0) Subarray vs Subsequence vs Subset (clear this up first!)
+
+Interviewers deliberately test whether you know these apart:
+
+| Term            | Contiguous? | Order kept? | Example from `[1,2,3]`        |
+|-----------------|-------------|-------------|-------------------------------|
+| **Subarray**    | **Yes**     | Yes         | `[2,3]` (a slice) — not `[1,3]`|
+| **Substring**   | Yes         | Yes         | (same idea, for strings)      |
+| **Subsequence** | No          | Yes         | `[1,3]` (drop the middle) ✓   |
+| **Subset**      | No          | No (a set)  | `{3,1}` — order doesn't matter |
+
+- An array of length `n` has `n(n+1)/2` subarrays, but `2ⁿ` subsequences/subsets.
+- **Rule of thumb:** *contiguous* problems (max sum, window) use two
+  pointers/sliding window/Kadane; *non-contiguous* problems (LIS, LCS) usually
+  need **DP** (Module 14). Picking the wrong tool here is a classic mistake.
+
+> **Memory hook:** *subARRAY = a continuous ARRAY slice; subSEQUENCE = pick some,
+> keep the SEQUENCE (order).*
+
+### A) Array Rotation — the reversal trick
+
+**Problem:** rotate an array left/right by `k` places, in **O(1)** extra space.
+Example: `[1,2,3,4,5,6,7]` rotated right by `k=3` → `[5,6,7,1,2,3,4]`.
+
+**Intuition (memory hook — "reverse three times"):** reverse the whole array,
+then reverse the two pieces. The parts fall into place.
+
+![Right-rotate by k using three reversals: reverse all, then reverse the first k, then reverse the rest.](images/150_rotation_reversal.png)
+
+```text
+# BRUTE FORCE: rotate one step, k times     Time O(n*k), Space O(1)
+repeat k times: move last element to front (shift the rest)
+
+# BETTER: use an extra array                 Time O(n), Space O(n)
+new[(i + k) % n] = arr[i]
+
+# OPTIMAL: three reversals (right rotate)     Time O(n), Space O(1)
+k = k % n                 # k may exceed n
+reverse(arr, 0, n-1)      # reverse the whole array
+reverse(arr, 0, k-1)      # reverse first k
+reverse(arr, k, n-1)      # reverse the rest
+```
+
+- **Why `k % n`:** rotating by `n` gives back the same array, so only `k mod n`
+  matters. Forgetting this is the #1 bug.
+- **Left rotate by k = right rotate by n−k** (or reverse the three pieces in the
+  other order).
+- **Problems:** Rotate Array (LC 189); Rotate a matrix reuses the same idea.
+
+### B) Next Permutation (the "just bigger" arrangement)
+
+**Problem:** rearrange the numbers into the **next lexicographically greater**
+permutation, in place, O(n). If it is already the largest, wrap to the smallest
+(fully sorted). This is what C++ `std::next_permutation` does.
+
+**Intuition (memory hook — "find the dip, swap, flip"):**
+
+```text
+# OPTIMAL                                    Time O(n), Space O(1)
+1. Scan from the right; find the first index i where arr[i] < arr[i+1].
+   (This is the "pivot" — the last place that can be increased.)
+   If none exists, the array is descending → reverse it all (smallest). Done.
+2. Scan from the right; find the first j with arr[j] > arr[i].
+3. Swap arr[i] and arr[j].
+4. Reverse the suffix after i (arr[i+1..n-1]) so it is smallest possible.
+```
+
+**Dry run** on `[1,2,3]`:
+
+```text
+[1,2,3]
+step1: from right, 2 < 3 → pivot i = 1 (value 2)
+step2: from right, first > 2 is 3 → j = 2
+step3: swap(2,3)  → [1,3,2]
+step4: reverse suffix after i (just [2]) → [1,3,2]   ✓ next perm
+```
+
+Another: `[3,2,1]` has no pivot (fully descending) → reverse → `[1,2,3]`.
+
+- **Why it works:** to get the *smallest* increase, we bump the rightmost digit
+  that can grow, use the smallest value larger than it, then make the tail as
+  small as possible (ascending).
+- **Problems:** Next Permutation (LC 31); Permutation Sequence (LC 60).
+
+### C) Binary Search on an Array (the O(log n) workhorse)
+
+Any **sorted** array supports search in **O(log n)** by repeatedly halving the
+search range. Know the exact template — off-by-one bugs here are common.
+
+```text
+# Standard binary search (find target's index, or -1)   Time O(log n), Space O(1)
+lo = 0; hi = n - 1
+while lo <= hi:
+    mid = lo + (hi - lo) / 2      # overflow-safe midpoint (Module 1)
+    if   arr[mid] == target: return mid
+    elif arr[mid] <  target: lo = mid + 1
+    else:                    hi = mid - 1
+return -1
+```
+
+- **Overflow-safe midpoint:** use `lo + (hi-lo)/2`, never `(lo+hi)/2` — see the
+  Module 1 overflow note.
+- **Beyond exact match:** the same halving finds the **first/last** occurrence,
+  the **lower/upper bound** (first index ≥ / > target), or the answer to
+  "**binary search on the answer**" problems (e.g. minimum capacity, Koko eating
+  bananas LC 875). Full treatment in the Searching module.
+- **Loop invariant:** the answer, if present, always stays inside `[lo, hi]`. Get
+  the boundary updates right and termination follows.
+- **Problems:** Binary Search (LC 704); Search Insert Position (LC 35); Find
+  First and Last Position (LC 34); Search in Rotated Sorted Array (LC 33).
+
+### MCQs
+
+1. `[1,2,3]` — subarray or subsequence is `[1,3]`? → **subsequence** (not
+   contiguous).
+2. Rotate array by k in O(1) space? → **three reversals**; remember `k % n`.
+3. Next permutation of `[1,3,2]`? → **[2,1,3]**.
+4. Binary search needs the array to be? → **sorted**; time **O(log n)**.
+5. Safe midpoint in binary search? → `lo + (hi-lo)/2`.
+
+---
+
 ## Module 2 — Concept Review (one page)
 
 - **Array** = contiguous block; access O(1) via `base + i*size`; cache-friendly.
@@ -889,6 +1016,11 @@ while i < n:
 - **Moore's voting** → majority (>n/2) in O(n)/O(1) (tug of war).
 - **Merge intervals** → sort by start, then sweep merging overlaps.
 - **Cyclic sort** → values in 1..n → put each at index value−1 (find missing/dup).
+- **Subarray** (contiguous) vs **subsequence** (order kept, gaps allowed) vs
+  **subset** (no order): `n(n+1)/2` subarrays but `2ⁿ` subsequences.
+- **Rotation** → three reversals, O(1) space (remember `k % n`).
+- **Next permutation** → find the dip from the right, swap, reverse the suffix.
+- **Binary search** → sorted array, O(log n); overflow-safe midpoint.
 
 ## Module 2 — Flash Cards
 
@@ -903,6 +1035,10 @@ while i < n:
 - Q: Majority element (>n/2) in O(1) space? **A: Moore's voting (tug of war).**
 - Q: Merge overlapping intervals? **A: sort by start, sweep; overlap if next.start ≤ cur.end.**
 - Q: Values are 1..n, find missing/duplicate in O(1) space? **A: cyclic sort.**
+- Q: Subarray vs subsequence? **A: subarray = contiguous; subsequence = order kept, gaps ok.**
+- Q: Rotate array by k, O(1) space? **A: three reversals (and k %= n first).**
+- Q: Next permutation steps? **A: find dip from right, swap, reverse suffix.**
+- Q: Binary search needs / gives? **A: sorted array / O(log n).**
 
 ## Module 2 — Pattern Recognition (how to spot it in an interview)
 
@@ -917,6 +1053,11 @@ while i < n:
 - "Element appears more than n/2 times" → **Moore's voting**.
 - "Overlapping intervals / merge / meeting rooms" → **sort + merge intervals**.
 - "Array contains 1..n, find missing/duplicate, O(1) space" → **cyclic sort**.
+- "Rotate the array by k in place" → **three reversals** (mind `k % n`).
+- "Next bigger arrangement / next permutation" → **find dip, swap, reverse tail**.
+- "Sorted array + find/lower-bound/'search on the answer'" → **binary search**.
+- "Contiguous → window/Kadane; non-contiguous (LIS/LCS) → DP" (subarray vs
+  subsequence).
 
 ## Module 2 — Interview Questions (with follow-ups)
 
@@ -926,12 +1067,17 @@ while i < n:
 4. *Longest substring without repeats.* FU: *prove it is O(n).*
 5. *Sort colors in one pass.* FU: *does it generalise to 4 colors?*
 6. *Max subarray; the all-negative case?* FU: *also return the indices.*
+7. *Rotate an array by k in O(1) space.* FU: *why three reversals? what if k>n?*
+8. *Implement next permutation.* FU: *what if the array is fully descending?*
+9. *Binary search variants.* FU: *find the first index ≥ target (lower bound).*
 
 ## Module 2 — GATE / SEBI / RBI / ISRO Perspective
 
 - **Common:** address calculation (`base + i*size`, the 2D row-major formula),
   amortised analysis of dynamic arrays, time complexity of insert/delete/search,
   prefix-sum reasoning. The 2D array address formula is a GATE favourite.
+- **Also seen:** binary-search step count (`⌈log₂ n⌉` comparisons), counting
+  subarrays (`n(n+1)/2`), and the number-of-subsequences formula (`2ⁿ`).
 
 ---
 

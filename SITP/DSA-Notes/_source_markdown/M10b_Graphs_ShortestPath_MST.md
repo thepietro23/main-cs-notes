@@ -55,11 +55,46 @@ while heap:
 > **Memory hook:** ripples that grow by **cheapest frontier** first (not by hop
 > count like BFS).
 
+### Worked trace — Dijkstra step by step
+
+Source **A** on this graph (edges: A–B 4, A–C 1, C–B 2, B–D 1, C–D 8, C–E 5,
+D–E 3):
+
+![Dijkstra settles A, then C, then B, then D, then E; each settled distance is final.](images/210_dijkstra_trace.png)
+
+```text
+init  dist: A0  B∞  C∞  D∞  E∞     heap:{(0,A)}
+pop A(0): relax B->4, C->1                 dist: A0 B4 C1 D∞ E∞
+pop C(1): B via C =1+2=3 (<4) B->3; D->9; E->6   dist: A0 B3 C1 D9 E6
+pop B(3): D via B =3+1=4 (<9) D->4                dist: A0 B3 C1 D4 E6
+pop D(4): E via D =4+3=7 (not <6) no change       dist: A0 B3 C1 D4 E6
+pop E(6): done
+Final shortest distances: A0  B3  C1  D4  E6
+```
+
+Notice how **C settling before B** let us improve B from 4 down to 3 — the greedy
+"closest first" order is what makes this correct.
+
+### Why Dijkstra fails on negative edges (concrete)
+
+```text
+A --1--> B          Dijkstra settles B at 1 (closest), locks it in.
+A --5--> C          Later it finds C=5, then edge C--(-4)-->B would give B=1... 
+C -(-4)-> B         but B is already SETTLED, so the -4 shortcut is ignored.
+Correct answer B=1 here, but with A->C=5, C->B=-10 the true B=-5 is MISSED.
+```
+
+The greedy invariant "a popped node's distance is final" only holds when adding
+an edge can never *decrease* a total — i.e. when weights are **non-negative**.
+For negatives, use **Bellman-Ford** (next).
+
 ### MCQs
 
 1. Dijkstra time with a binary heap? → **O((V+E) log V)**.
 2. Dijkstra fails when? → there are **negative edges**.
 3. What data structure drives it? → a **min-heap / priority queue**.
+4. Why does a settled node stay final? → because non-negative edges can only
+   **increase** a total, never make a shortcut cheaper later.
 
 ### Problems
 
@@ -89,6 +124,31 @@ repeat V-1 times:
 
 - Slower than Dijkstra (O(VE)), but the **go-to when edges can be negative**, and
   the only simple way to **detect negative cycles** (e.g. currency arbitrage).
+
+### Why exactly V−1 rounds?
+
+A shortest path visits each node at most once, so it has **at most V−1 edges**.
+One full relaxation round is guaranteed to extend every correct shortest path by
+**at least one more edge**, so after **V−1** rounds even the longest shortest path
+is fully built. A **V-th** round that still improves something proves a path with
+≥ V edges is getting cheaper — only a **negative cycle** can do that.
+
+### Worked trace — Bellman-Ford
+
+Source **A**, edges processed in order `A→B(4), A→C(5), B→C(-6), C→D(3)`:
+
+```text
+init  A0  B∞  C∞  D∞
+round 1: A->B: B=4 | A->C: C=5 | B->C: 4-6=-2 (<5) C=-2 | C->D: -2+3=1 D=1
+round 2: A->B: 4 | A->C: 5 | B->C: -2 | C->D: 1  (no change)
+round 3: (no change)  -> converged early
+Final:  A0  B4  C-2  D1
+Extra check round: nothing relaxes -> NO negative cycle.
+```
+
+Here the negative edge `B→C(-6)` is handled correctly — something Dijkstra
+could not do. Convergence often happens before V−1 rounds; you may **stop early**
+when a round makes no change.
 
 ### MCQs
 
@@ -124,11 +184,30 @@ for k in V:
 > **Memory hook:** "can I get from i to j cheaper by routing **through k**?" —
 > asked for every k.
 
+### The DP recurrence (what k really means)
+
+Let `d_k[i][j]` = shortest i→j path allowed to use only intermediate nodes from
+the set `{1..k}`. Then:
+
+```text
+d_0[i][j]  = weight(i,j)          # no intermediates: direct edge (or ∞)
+d_k[i][j]  = min( d_{k-1}[i][j],                 # don't use k
+                  d_{k-1}[i][k] + d_{k-1}[k][j]) # do route through k
+answer     = d_V[i][j]
+```
+
+Because each layer only reads the previous layer's `[i][k]` and `[k][j]` — which
+are unchanged when we overwrite `[i][j]` — the table can be updated **in place**
+with a single `dist[][]`, which is why the code uses just O(V²) space. The loop
+order **k outermost** is essential; swapping it breaks correctness.
+
 ### MCQs
 
 1. Floyd-Warshall time/space? → **O(V³) / O(V²)**.
 2. The relaxation core? → `dist[i][j] = min(dist[i][j], dist[i][k]+dist[k][j])`.
 3. When prefer it over Dijkstra-from-each-node? → **small/dense**, need all pairs.
+4. Which loop must be outermost? → the **intermediate node k**.
+5. `k` in `d_k[i][j]` means? → paths using only intermediates from **{1..k}**.
 
 ---
 
@@ -153,6 +232,31 @@ for k in V:
 2. A* = Dijkstra + ? → a **heuristic** toward the goal.
 3. Distance to the nearest of many sources? → **multi-source BFS** (push all
    sources first).
+
+---
+
+## 10b.4a Shortest-path algorithms — summary table
+
+One table to pick the right tool. (V = nodes, E = edges.)
+
+| Algorithm | Weights | Scope | Time | Negative cycle? |
+|---|---|---|---|---|
+| **BFS** | unweighted | single source | **O(V+E)** | n/a |
+| **0-1 BFS** | 0 or 1 only | single source | **O(V+E)** | n/a |
+| **Dijkstra** | non-negative | single source | **O((V+E) log V)** | can't handle |
+| **Bellman-Ford** | any (incl. −ve) | single source | **O(V·E)** | **detects** it |
+| **Floyd-Warshall** | any (no −ve cycle) | **all pairs** | **O(V³)** | flags via diagonal |
+
+> **Decision order:** unweighted → BFS. 0/1 weights → 0-1 BFS. Non-negative →
+> Dijkstra. Negative edges → Bellman-Ford. Need every pair on a small graph →
+> Floyd-Warshall.
+
+### MCQs
+
+1. Fastest single-source on non-negative weights? → **Dijkstra**.
+2. Only listed algorithm that *detects* a negative cycle directly? →
+   **Bellman-Ford**.
+3. All-pairs on a small dense graph? → **Floyd-Warshall**.
 
 ---
 
@@ -186,11 +290,41 @@ repeatedly pull the cheapest edge to a NEW node; add it; push its edges
 - **Cut property** (why greedy works): the cheapest edge crossing any partition of
   the nodes is always safe to include.
 
+### Prim vs Kruskal — comparison
+
+| | **Kruskal** | **Prim** |
+|---|---|---|
+| Strategy | pick cheapest **edge** globally | grow one **tree** from a start node |
+| Core structure | sort + **union-find** | **min-heap** (priority queue) |
+| Cycle avoided by | `find(u) != find(v)` | only pull edges to a **new** node |
+| Works on a forest? | **yes** (builds MST per component) | one component at a time |
+| Time | **O(E log E)** | **O((V+E) log V)** |
+| Best for | **sparse** graphs | **dense** graphs |
+
+### Worked trace — Kruskal
+
+Edges by weight: `(A,B,1) (B,C,2) (A,C,3) (C,D,4) (B,D,5)` on 4 nodes:
+
+```text
+sort:  AB1  BC2  AC3  CD4  BD5
+AB1: find(A)!=find(B) -> ADD; union      tree={AB}       comps:{A,B}{C}{D}
+BC2: find(B)!=find(C) -> ADD; union      tree={AB,BC}    comps:{A,B,C}{D}
+AC3: find(A)==find(C) -> SKIP (cycle)
+CD4: find(C)!=find(D) -> ADD; union      tree={AB,BC,CD} comps:{A,B,C,D}
+BD5: all one component now -> stop (V-1=3 edges chosen)
+MST edges: AB, BC, CD    total weight = 1+2+4 = 7
+```
+
+An MST on V nodes always has exactly **V−1 edges**; Kruskal stops once it has
+picked that many.
+
 ### MCQs
 
 1. Kruskal uses which structure to avoid cycles? → **union-find**.
 2. Kruskal vs Prim time? → **O(E log E)** vs **O((V+E) log V)**.
 3. Why does greedy give the MST? → the **cut property**.
+4. How many edges in an MST of V nodes? → exactly **V − 1**.
+5. Kruskal on a sparse graph vs Prim on a dense graph? → each is preferred there.
 
 ### Problems
 
@@ -221,6 +355,9 @@ repeatedly pull the cheapest edge to a NEW node; add it; push its edges
 - Q: 0/1 weights fastest? **A: 0-1 BFS (deque).**
 - Q: A* adds what to Dijkstra? **A: an admissible heuristic.**
 - Q: MST algorithms? **A: Kruskal (union-find), Prim (heap).**
+- Q: Why V−1 rounds in Bellman-Ford? **A: a shortest path has ≤ V−1 edges.**
+- Q: Edges in an MST of V nodes? **A: exactly V−1.**
+- Q: Floyd-Warshall outermost loop? **A: the intermediate node k.**
 
 ## Module 10b — Pattern Recognition
 
@@ -229,6 +366,7 @@ repeatedly pull the cheapest edge to a NEW node; add it; push its edges
 - "Shortest path between every pair / small dense graph" → **Floyd-Warshall**.
 - "Weights are only 0/1" → **0-1 BFS**; "single target with a map" → **A\***.
 - "Connect everything at minimum cost" → **MST (Kruskal/Prim)**.
+- "Sparse graph, connect all" → **Kruskal**; "dense graph, connect all" → **Prim**.
 
 ## Module 10b — Interview Questions (with follow-ups)
 

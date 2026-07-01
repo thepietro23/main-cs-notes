@@ -97,6 +97,29 @@ a,b=0,1; repeat n times: a,b = b, a+b; return a
 This exact ladder (exponential → O(n) → O(1) space) is the template for almost
 every 1D DP.
 
+### 14a.2a Worked trace — Fibonacci memoization call tree
+
+Here is *why* memoization turns exponential into linear. Plain `fib(5)` explodes;
+the memo cuts every repeat to a single cache hit.
+
+```text
+# fib(5) WITHOUT memo — same subtrees recomputed (overlap!)
+                    fib(5)
+              /               \
+          fib(4)             fib(3)      <- fib(3) computed AGAIN below
+         /      \            /     \
+     fib(3)   fib(2)     fib(2)  fib(1)
+     /   \     /  \       /  \
+  fib(2) f1  f1  f0     f1  f0          <- fib(2) appears 3x, fib(1) 5x
+
+# WITH memo — each fib(k) is solved once, then read from the sticky note:
+  fib(2)=1 [store]  fib(3)=2 [store]  fib(4)=3 [store]  fib(5)=5 [store]
+  every later reference to fib(2)/fib(3)/fib(4) is an O(1) cache HIT.
+```
+
+> **Memory hook:** the tree has O(φⁿ) nodes but only **n distinct values** — the
+> memo collapses duplicate subtrees into one, giving **O(n)**.
+
 ---
 
 ## 14a.3 1D DP Patterns
@@ -108,12 +131,38 @@ every 1D DP.
 Stairs counts the empty way as 1.) House robber, decode ways, and tiling all share
 this "depends on the last one or two states" shape.
 
+**Worked table — Climbing Stairs, n = 5** (`dp[i]` = ways to reach step `i`):
+
+```text
+ step i:   0   1   2   3   4   5
+ dp[i]:    1   1   2   3   5   8      <- answer = dp[5] = 8
+           |   |   |   |   |   |
+ rule:    base base 1+1 2+1 3+2 5+3   (each = dp[i-1] + dp[i-2])
+```
+
+Read it left to right: `dp[2]=dp[1]+dp[0]=2`, `dp[3]=dp[2]+dp[1]=3`, and so on.
+Only the last two values are ever needed → drop to **O(1) space** (two variables).
+
 ### House Robber — `dp[i] = max(dp[i-1], dp[i-2] + nums[i])`
 
 ![House robber 1D DP: dp[i] = max(skip = dp[i-1], rob = dp[i-2]+nums[i]); answer = dp[last].](images/105_dp_1d.png)
 
 At each house: **skip it** (carry `dp[i-1]`) or **rob it** (`dp[i-2] + nums[i]`,
 can't rob adjacent). `nums=[2,7,9,3,1]` → `dp=[2,7,11,11,12]` → **12**. O(n)/O(1).
+
+**Worked table — House Robber, `nums=[2,7,9,3,1]`:**
+
+```text
+ i:        0    1    2         3         4
+ nums:     2    7    9         3         1
+ dp[i]:    2    7   11        11        12       <- answer = dp[4] = 12
+ how:    n[0] max  max(7,     max(11,   max(11,
+              (2,7) 2+9=11)   7+3=10)   11+1=12)
+ pick:  {0}  {1}   {0,2}      {0,2}     {0,2,4}
+```
+
+Notice `dp[3]=11` keeps the *skip* option (rob-house-3 gives only `7+3=10`), then
+house 4 revives to `11+1=12`. The winning set is **{house 0, 2, 4} = 2+9+1 = 12**.
 
 - **House Robber II (LC 213):** houses in a **circle**. Since house 0 and house
   n−1 are now adjacent, any valid plan must **exclude at least one of them** →
@@ -132,6 +181,19 @@ return dp[amount] (or -1 if still infinity)
 
 > **Note:** this is the DP that fixes the greedy failure from Module 11 (coins
 > {1,3,4} → 6). DP tries *all* coins per amount, so it's always optimal.
+
+**Worked table — Coin Change (min), `coins={1,3,4}`, amount = 6.** `dp[x]` = fewest
+coins to make `x`; `∞` means "not reachable yet".
+
+```text
+ amount x:   0    1    2    3    4    5    6
+ dp[x]:      0    1    2    1    1    2    2    <- answer = dp[6] = 2
+ best coin:  -    1   1+1   3    4   4+1  3+3
+```
+
+Trace the interesting cells: `dp[5]=min(dp[4]+1, dp[2]+1, dp[1]+1)=min(2,3,2)=2`;
+`dp[6]=min(dp[5]+1, dp[3]+1, dp[2]+1)=min(3,2,3)=2` → **{3,3}**. Greedy would have
+grabbed 4 first (`4+1+1=3` coins) — DP beats it because it tries *every* coin.
 
 ### Coin Change II — COUNT ways (the loop-order gotcha)
 
@@ -192,6 +254,8 @@ above, since LIS is the most common 1D DP interview question.
 1. House Robber recurrence? → `dp[i]=max(dp[i-1], dp[i-2]+nums[i])`.
 2. Coin Change (min coins) complexity? → **O(amount × #coins)**.
 3. Max Product Subarray tracks? → **both max and min** (negatives flip sign).
+4. Climbing Stairs `dp[5]` for n=5? → **8** (Fibonacci-shaped, base `dp[0]=dp[1]=1`).
+5. Coin Change `{1,3,4}`, amount 6, min coins? → **2** (`3+3`); greedy gives 3.
 
 ### Problems
 
@@ -211,6 +275,31 @@ Move only **right/down**; each cell's count = from above + from left. Closed for
 = `C(m+n−2, n−1)`. **Min Path Sum (LC 64):** `dp[i][j] = grid[i][j] + min(up,
 left)`. **Unique Paths II (LC 63):** obstacles set those cells to 0.
 
+**Worked trace — 3×3 grid.** Top row and left column are all `1` (one way: keep
+going straight). Every other cell = the cell **above** + the cell to its **left**:
+
+```text
+        col0 col1 col2
+ row0     1    1    1
+ row1     1    2    3        e.g. dp[1][1] = dp[0][1]+dp[1][0] = 1+1 = 2
+ row2     1    3    6        dp[2][2] = dp[1][2]+dp[2][1] = 3+3 = 6  <- answer
+```
+
+Check against the closed form: `C(m+n−2, n−1) = C(4,2) = 6`. ✓ For the 3×7 grid in
+the PNG the same rule gives **28** at the bottom-right.
+
+**Space optimisation (rolling row) — worked.** Each cell only needs the row above
+and the cell just written, so keep **one 1D row** and update it left-to-right:
+
+```text
+ start row:   [1, 1, 1]          (top row)
+ process r1:  cur[j] += cur[j-1]  ->  [1, 2, 3]   (cur[j-1] is the "left")
+ process r2:  cur[j] += cur[j-1]  ->  [1, 3, 6]   answer = last cell = 6
+```
+
+Here `cur[j]` *before* the update is the value "from above"; `cur[j-1]` (already
+updated this pass) is the value "from the left". This cuts **O(m·n) → O(n)** space.
+
 ### Edit Distance (Levenshtein) — the 2D classic
 
 ![Edit Distance DP table for 'horse' → 'ros' = 3; equal chars copy the diagonal, else 1 + min(insert, delete, replace).](images/107_edit_distance.png)
@@ -228,6 +317,24 @@ else: dp[i][j] = 1 + min(dp[i][j-1],    # insert
 `"horse" → "ros"` = **3** edits: replace **h→r**, delete **r** (2nd char of
 "horse"), delete **e** → leaves "ros". (Trace it through the table; bottom-right =
 3.)
+
+**Worked table — `"horse"` (rows) → `"ros"` (cols).** First row/col are `0..len`
+(turn into/from the empty string). Matches copy the diagonal; mismatches take
+`1 + min(left, up, diagonal)`:
+
+```text
+        ""   r   o   s
+   ""    0   1   2   3
+   h     1   1   2   3
+   o     2   2   1   2
+   r     3   2   2   2
+   s     4   3   3   2
+   e     5   4   4   3      <- answer = dp[5][3] = 3
+```
+
+The only diagonal *matches* are `o=o` (giving the `1` at row o / col o) and `s=s`
+and the final `s`. Everything else pays 1 for insert/delete/replace. Bottom-right
+= **3**. Backtracking the arrows recovers the exact edit script above.
 
 ### Matrix Chain Multiplication (the #1 GATE interval DP)
 
@@ -271,6 +378,8 @@ classic "can you do better on space?" interview ask.
    n−1)`.
 2. Edit Distance equal-char transition? → copy the **diagonal** `dp[i-1][j-1]`.
 3. 2D DP space optimisation? → keep only the **previous row** → O(min(m,n)).
+4. Unique Paths on a 3×3 grid? → **6** (`= C(4,2)`).
+5. Edit distance `"horse"→"ros"`? → **3** (replace h→r, delete r, delete e).
 
 ### Problems
 

@@ -142,6 +142,19 @@ Review each topic at **expanding intervals** (Day 0 → 1 → 3 → 7 → 21 →
 module's **Flash Cards + Concept Review** is one revision unit. These are
 **"one-time life notes"** — *revisit*, don't re-learn.
 
+**How to run one review unit (10–15 min):**
+
+1. **Recall first, read second.** Cover the answer, say/write it from memory, then
+   check. Active recall beats re-reading.
+2. **Grade each card:** *got it* → push to the next interval; *shaky* → keep it at
+   the current interval; *missed* → reset it to Day 1.
+3. **Log the misses** in your weakness list; those graduate to a timed re-solve.
+4. **One-liner test:** can you state the pattern *and* its complexity in a single
+   sentence? If not, it's not yet a "revisit" card — it's still a "learn" card.
+
+> **Memory hook:** the interval only grows for cards you got **right**. A miss goes
+> back to the start — that is what makes spaced repetition efficient.
+
 ---
 
 ## 26.9 Formula & Identity Sheet (quick recall)
@@ -155,6 +168,46 @@ module's **Flash Cards + Concept Review** is one revision unit. These are
   power-of-2 `x&(x-1)==0`.
 - Binary tree height h → ≤ `2^(h+1)−1` nodes; balanced height `O(log n)`.
 - Two's complement n-bit range: `[-2^(n-1), 2^(n-1)-1]`.
+
+**Logarithm rules (for complexity algebra):**
+
+- `log(xy) = log x + log y`; `log(x/y) = log x − log y`; `log(x^k) = k·log x`.
+- Change of base: `log_b x = (log x)/(log b)` → bases differ by a **constant**, so
+  in Big-O `log₂ n`, `log₁₀ n`, `ln n` are all just **O(log n)**.
+- `a^(log_b n) = n^(log_b a)` (the identity behind the Master Theorem).
+- `2^(log₂ n) = n`; `log₂(n!) = Θ(n log n)` (Stirling) → the comparison-sort
+  lower bound.
+
+**Series sums (recurrence/complexity closed forms):**
+
+- Sum of squares: `1²+2²+…+n² = n(n+1)(2n+1)/6` → **Θ(n³)**.
+- Sum of cubes: `1³+2³+…+n³ = (n(n+1)/2)²`.
+- Geometric: `1 + r + r² + … + r^(n-1) = (r^n − 1)/(r − 1)` (r≠1); if `|r|<1` and
+  n→∞, it converges to `1/(1−r)`.
+- Powers of two: `1+2+4+…+2^k = 2^(k+1) − 1` (why a full binary tree of height h
+  has `2^(h+1)−1` nodes, and why heap build-up is O(n)).
+- Harmonic: `H_n = 1 + 1/2 + 1/3 + … + 1/n ≈ ln n + 0.577` → **Θ(log n)** (the
+  average cost behind quicksort/quickselect and hashing analyses).
+
+**Combinatorics (quick recall):**
+
+- Permutations `nPr = n!/(n−r)!`; combinations `nCr = n!/(r!(n−r)!)`.
+- Symmetry `nCr = nC(n−r)`; total subsets `Σ_{r=0..n} nCr = 2^n`.
+- Vandermonde / hockey-stick appear in DP counting; the **Catalan** number
+  `C_n = C(2n,n)/(n+1)` counts balanced parentheses, BST shapes, and full binary
+  trees with n internal nodes.
+- Stars and bars: non-negative integer solutions of `x₁+…+x_k = n` is
+  `C(n+k−1, k−1)`.
+
+**Modular arithmetic (competitive/number-theory MCQs):**
+
+- `(a+b) mod m = ((a mod m) + (b mod m)) mod m`; same for `−` and `·`.
+- Division needs the **modular inverse**: `a/b mod m = a · b^(−1) mod m`.
+- Fermat's little theorem (m prime, `gcd(a,m)=1`): `a^(m−1) ≡ 1 (mod m)`, so
+  `a^(−1) ≡ a^(m−2) (mod m)`.
+- Fast exponentiation `a^n mod m` in **O(log n)** by squaring.
+- Keep intermediate products in 64-bit (`long`) before taking `mod` to avoid
+  overflow.
 
 ---
 
@@ -182,5 +235,11 @@ log weaknesses → revisit on a schedule. Breadth of patterns first, then depth.
 - Q: Practice method? **A: timed + think-aloud + weakness log + spaced revision.**
 - Q: Breadth or depth first? **A: breadth across patterns, then depth.**
 - Q: Worst-case hash table? **A: O(n).** Build-heap? **A: O(n).**
+- Q: `log₂(n!)` is? **A: Θ(n log n)** — the comparison-sort lower bound.
+- Q: Harmonic sum `H_n`? **A: Θ(log n)** (≈ ln n).
+- Q: Sum `1²+…+n²`? **A: n(n+1)(2n+1)/6 = Θ(n³).**
+- Q: Modular inverse when m is prime? **A: a^(m−2) mod m (Fermat).**
+- Q: Spaced-repetition rule for a *missed* card? **A: reset to Day 1; intervals
+  only grow on a correct recall.**
 
 *End of Module 26 — and the end of the course. Revisit, practice, and win.*

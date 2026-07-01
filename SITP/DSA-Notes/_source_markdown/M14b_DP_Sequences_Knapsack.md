@@ -60,6 +60,26 @@ reverse. (In the O(n log n) version, store `idx[pos]=i` when you place `x` at
 > **Memory hook:** *patience sorting* — deal each card onto the leftmost pile
 > whose top is ≥ it; the number of piles = LIS length.
 
+**Worked trace — O(n log n) tails, `nums=[10,9,2,5,3,7,101,18]`.** `tails[k]` = the
+smallest possible tail value of an increasing subsequence of length `k+1`. For each
+`x` we `lower_bound` (first tail ≥ x) and either append (new longest) or overwrite:
+
+```text
+ x=10 : tails empty -> append          tails=[10]
+ x=9  : 9 replaces 10 (first >=9)       tails=[9]
+ x=2  : 2 replaces 9                    tails=[2]
+ x=5  : 5 > all -> append               tails=[2,5]
+ x=3  : 3 replaces 5 (first >=3)        tails=[2,3]
+ x=7  : 7 > all -> append               tails=[2,3,7]
+ x=101: 101 > all -> append             tails=[2,3,7,101]
+ x=18 : 18 replaces 101 (first >=18)    tails=[2,3,7,18]
+ answer = len(tails) = 4
+```
+
+> **Warning (restate):** the final `tails=[2,3,7,18]` *happens* to be a real LIS
+> here, but in general it is **not** — only its **length** is guaranteed. Overwrites
+> can leave stale prefixes; use a `parent[]` array (above) to recover a true LIS.
+
 ### MCQs
 
 1. LIS O(n²) recurrence? → `dp[i] = 1 + max(dp[j] : j<i, nums[j]<nums[i])`.
@@ -103,6 +123,20 @@ char and go **diagonal** (i--, j--); else move toward the **larger** of
 `dp[i-1][j]` / `dp[i][j-1]`. **Space note:** two rolling rows give the **length in
 O(min(m,n))** space — but then you **can't backtrack** the string; to recover the
 LCS in O(min) space use **Hirschberg's algorithm** (divide & conquer).
+
+**Worked backtrack — recover "ACE" from the table above** (start at `dp[3][5]=3`):
+
+```text
+ (i=3,j=5): A[2]='E', B[4]='E'  MATCH  -> emit 'E', go diagonal to (2,4)
+ (i=2,j=4): A[1]='C', B[3]='D'  no     -> dp[1][4]=1 vs dp[2][3]=2, go left to (2,3)
+ (i=2,j=3): A[1]='C', B[2]='C'  MATCH  -> emit 'C', go diagonal to (1,2)
+ (i=1,j=2): A[0]='A', B[1]='B'  no     -> dp[0][2]=0 vs dp[1][1]=1, go left to (1,1)
+ (i=1,j=1): A[0]='A', B[0]='A'  MATCH  -> emit 'A', go diagonal to (0,0) STOP
+ emitted (reversed) = A, C, E  ->  "ACE"
+```
+
+Because we prepend on each match (or read the emissions in reverse), the recovered
+subsequence is **"ACE"**, exactly length 3.
 
 ### The LCS family (same table, different transition)
 
@@ -185,6 +219,35 @@ for each item:
   **Count ways (Coin Change II, LC 518):** loop **coins outside, amount inside**
   to count *combinations* (not permutations) — a classic loop-order gotcha.
 
+### Bounded knapsack — at most `cᵢ` copies of item `i`
+
+The middle ground: each item has a **fixed count limit** `cᵢ` (not once, not
+infinite). The clean way is **binary splitting**: break `cᵢ` copies into powers of
+two (1, 2, 4, …, remainder), each treated as one *new* 0/1 item. Then run ordinary
+0/1 knapsack. This represents any count 0..cᵢ with only **O(log cᵢ)** items.
+
+```text
+# Bounded knapsack via binary splitting        Time O(W * sum(log c_i))
+for each item (wt, val, count c):
+    k = 1
+    while c > 0:
+        take = min(k, c)                     # a "bundle" of `take` copies
+        add a 0/1 item of weight take*wt, value take*val
+        c -= take;  k *= 2                   # 1,2,4,... then the remainder
+run standard 0/1 knapsack (right-to-left) over the generated bundles
+```
+
+**Decision table — which knapsack am I in?**
+
+| Copies per item | Name | 1D loop direction | Classic problems |
+|---|---|---|---|
+| **exactly once** | 0/1 knapsack | `w` **right→left** | subset-sum, partition, target sum |
+| **unlimited** | unbounded | `w` **left→right** | coin change, rod cutting, perfect squares |
+| **at most cᵢ** | bounded | binary-split → 0/1 | "≤ k of each item" resource problems |
+
+> **Memory hook:** *once → right-to-left; forever → left-to-right; a fixed few →
+> split into powers of two, then treat as 0/1.*
+
 ### Subset Sum / Equal Partition / Target Sum
 
 ![Subset Sum: dp[s] = dp[s] OR dp[s-num]; equal partition = subset-sum to total/2.](images/112_subset_sum.png)
@@ -198,6 +261,22 @@ for each item:
   (reject if `sum+target` is odd or negative). *This algebra is the whole point.*
 - **Last Stone Weight II, Ones and Zeroes** — knapsack variants.
 
+**Worked table — Subset Sum, `nums=[3,34,4,12,5,2]`, target = 9.** `dp[s]` = "can we
+hit sum `s`?" Start `dp[0]=T`; for each number sweep `s` **right→left** so a number
+is used at most once. Showing sums 0..9 after each number:
+
+```text
+ after num   s: 0  1  2  3  4  5  6  7  8  9
+   (init)       T  .  .  .  .  .  .  .  .  .
+   +3           T  .  .  T  .  .  .  .  .  .
+   +34          T  .  .  T  .  .  .  .  .  .   (34>9, no change)
+   +4           T  .  .  T  T  .  .  T  .  .   (dp[7]=dp[3])
+   +12          (no change, 12>9)
+   +5           T  .  .  T  T  T  .  T  T  T   (dp[9]=dp[4], dp[8]=dp[3], dp[5]=dp[0])
+   +2           T  .  T  T  T  T  T  T  T  T   (dp[9]=dp[7] etc.)
+ dp[9] = T  ->  YES, e.g. subset {4,5} or {3,4,2} sums to 9
+```
+
 > **Memory hook:** subset-sum = a 0/1 knapsack where **value = weight** and you ask
 > "can I fill *exactly* this much?"
 
@@ -208,6 +287,8 @@ for each item:
    left-to-right**.
 3. Equal partition reduces to? → **subset-sum to total/2**.
 4. Why is O(n·W) "pseudo-polynomial"? → `W` is a **value** (input size log W).
+5. Bounded knapsack (≤ cᵢ copies) trick? → **binary splitting** into powers of two,
+   then run 0/1 → **O(W·Σ log cᵢ)**.
 
 ### Problems
 
@@ -239,6 +320,8 @@ for each item:
 - Q: Coin Change II loop order? **A: coins outside, amount inside (combinations).**
 - Q: Equal partition? **A: subset-sum to total/2 (total even).**
 - Q: Why knapsack pseudo-polynomial? **A: W is a value, size log W bits.**
+- Q: Bounded knapsack (≤ cᵢ copies)? **A: binary-split into powers of two → 0/1.**
+- Q: Is the LIS tails array a real LIS? **A: no — only its length is guaranteed.**
 
 ## Module 14b — Pattern Recognition
 

@@ -51,6 +51,42 @@ looks at the top without removing.
 Both give **O(1)** push/pop. Arrays are usually preferred (cache locality —
 Module 1).
 
+### Implementing both (pseudocode)
+
+```text
+# ARRAY-BASED stack (top = index of last item)
+push(x): if top+1 == cap: grow (double); data[++top] = x    # amortised O(1)
+pop():   if top < 0: error (underflow); return data[top--]
+peek():  return data[top]
+empty(): return top < 0
+
+# LINKED-LIST-BASED stack (top = head of the list)
+push(x): node = new Node(x); node.next = head; head = node   # O(1)
+pop():   if head == NULL: error; x = head.val; head = head.next; return x
+peek():  return head.val
+```
+
+- **Array**: watch for **overflow** (fixed array) or pay an occasional resize
+  (dynamic array — Module 2). One contiguous block → cache-friendly.
+- **Linked list**: never "full" until memory runs out, but each node costs an
+  extra pointer and lives in scattered memory (cache misses).
+
+### The call stack — recursion *is* a stack
+
+Every function call pushes a **stack frame** (its parameters, locals, and the
+return address) onto the program's **call stack**; returning pops it. So a
+recursive algorithm is secretly using a stack — the runtime manages it for you.
+
+- **Depth = recursion depth.** Too-deep recursion overflows this stack
+  (**stack overflow**). That is why very deep recursions are rewritten as loops
+  with an **explicit stack**.
+- Any recursion can be converted to iteration by simulating the call stack by
+  hand (push the "work still to do", pop and process). Iterative DFS and the
+  iterative tree traversals below (5.4a) do exactly this.
+
+> **Memory hook:** the last function you *called* is the first one to *return* —
+> pure LIFO.
+
 ### Where stacks are used (real life)
 
 - **Function calls** (the call stack) — Module 1.
@@ -70,6 +106,42 @@ Module 1).
 1. Stack order? → **LIFO**.
 2. push/pop time? → **O(1)**.
 3. Which traversal uses a stack? → **DFS** (recursion).
+4. Recursion depth maps to what runtime resource? → the **call stack** (overflow
+   if too deep).
+
+---
+
+## 5.1a Stack Using Two Queues (a classic interview twist)
+
+You can build a LIFO stack out of two FIFO queues. There are two designs; pick
+which operation you want to keep cheap.
+
+```text
+# Design A: costly PUSH, O(1) pop  ("push-heavy")
+push(x): enqueue x into q2
+         move everything from q1 into q2   # x ends up at the front
+         swap names of q1 and q2
+         # now q1's front is the most-recent element  -> O(n) push
+pop():   dequeue from q1                    # O(1)
+
+# Design B: O(1) push, costly POP  ("pop-heavy")
+push(x): enqueue x into q1                  # O(1)
+pop():   move all but the last from q1 into q2
+         answer = dequeue the last one from q1   # the newest
+         swap q1 and q2                     # O(n) pop
+```
+
+- One operation is unavoidably **O(n)**; you only choose *which*. (Contrast:
+  queue-from-two-**stacks** in Module 6 achieves **amortised O(1)** — that
+  direction is nicer.)
+- LC 225 "Implement Stack using Queues". A common trick uses a **single** queue:
+  after enqueuing `x`, rotate the queue by `size-1` so `x` sits at the front.
+
+### MCQs
+
+1. Stack from two queues — best you can do for the two ops? → one is **O(n)**,
+   the other **O(1)** (you choose which).
+2. Can it be done with one queue? → **yes** (rotate after each push).
 
 ---
 
@@ -210,12 +282,56 @@ return answer
 > **Memory hook:** people waiting in a line for "someone taller". A tall person
 > arriving serves (answers) everyone shorter who was waiting.
 
+### Worked trace — next greater of [2, 1, 2, 4, 3]
+
+The stack holds **indices** whose answer is still pending (values decreasing top
+to bottom). `-1` means "no greater element to the right".
+
+```text
+i  a[i]  action                                stack(idx)   answer so far
+-  ----  ------------------------------------  -----------  -------------------
+0   2    push 0                                [0]          [_,_,_,_,_]
+1   1    1 < a[0]=2, no pop; push 1            [0,1]        [_,_,_,_,_]
+2   2    a[1]=1 < 2 -> pop 1 (ans[1]=2);
+         a[0]=2 not < 2 -> stop; push 2       [0,2]        [_,2,_,_,_]
+3   4    a[2]=2 < 4 -> pop 2 (ans[2]=4);
+         a[0]=2 < 4 -> pop 0 (ans[0]=4);
+         push 3                               [3]          [4,2,4,_,_]
+4   3    3 < a[3]=4, no pop; push 4           [3,4]        [4,2,4,_,_]
+end      indices 3,4 left -> ans = -1         -            [4,2,4,-1,-1]
+```
+
+Final answer: **[4, 2, 4, -1, -1]**. Notice each index is pushed once and popped
+at most once → **O(n)** total.
+
 ### Variations (same template)
 
 - **Next smaller / previous greater / previous smaller:** flip the comparison or
   scan right-to-left.
 - **Stock span** (LC 901), **daily temperatures** (LC 739): "how many days until
   a warmer day" — same monotonic stack.
+
+### Stock span (LC 901) — worked
+
+The **span** of a day is how many consecutive days (including today) the price
+was **≤ today's price**, looking back. Keep a **decreasing** stack of indices;
+when today is ≥ the top's price, pop it (those days are covered by today).
+
+```text
+# Stock span                                 Time O(n), Space O(n)
+stack = []          # indices, prices strictly decreasing
+for i in 0..n-1:
+    while stack and price[stack.top] <= price[i]:
+        stack.pop()
+    span[i] = (stack empty) ? (i + 1) : (i - stack.top)
+    stack.push(i)
+
+# prices = [100, 80, 60, 70, 60, 75, 85]
+# spans   = [  1,  1,  1,  2,  1,  4,  6]
+```
+
+Day with price 75 pops 60, 70, 60 → span reaches back 4 days; then 85 pops 75
+too → span 6.
 
 ### MCQs
 
@@ -362,6 +478,57 @@ getMin(): return minStack.top
 
 ---
 
+## 5.8 Iterative Tree Traversal (recursion → explicit stack)
+
+Recursive tree traversal (Module 8) uses the call stack. To avoid recursion (and
+stack-overflow on deep trees), simulate that call stack **yourself** with an
+explicit stack. This is a favourite "can you convert recursion to iteration"
+interview ask.
+
+### Iterative inorder (left, node, right)
+
+```text
+# Iterative inorder                          Time O(n), Space O(h)
+stack = []; cur = root
+while cur or stack:
+    while cur:                # go as far left as possible, pushing on the way
+        stack.push(cur); cur = cur.left
+    cur = stack.pop()         # leftmost unvisited
+    visit(cur)
+    cur = cur.right           # then explore its right subtree
+```
+
+### Iterative preorder (node, left, right)
+
+```text
+# Iterative preorder                         Time O(n), Space O(h)
+stack = [root]
+while stack:
+    node = stack.pop(); visit(node)
+    if node.right: stack.push(node.right)   # push right FIRST
+    if node.left:  stack.push(node.left)    # so left is processed first
+```
+
+- Push **right before left** so the **left** child is popped (and visited) first
+  — the stack reverses order.
+- **Postorder** is trickier: do a modified preorder (node, right, left) and
+  **reverse** the output, or track a "last visited" node.
+- **Space O(h)** where `h` is the tree height — the explicit stack mirrors the
+  recursion depth exactly, proving the call-stack connection from 5.1.
+
+### MCQs
+
+1. Iterative inorder uses which structure? → an explicit **stack**.
+2. In iterative preorder, push which child first? → the **right** child (so left
+   is visited first).
+3. Space of iterative traversal? → **O(h)** (tree height = recursion depth).
+
+### Problems
+
+- Binary Tree Inorder/Preorder/Postorder Traversal (LC 94 / 144 / 145).
+
+---
+
 ## Module 5 — Concept Review (one page)
 
 - **Stack = LIFO**; push/pop/peek are O(1); used by call stack, undo, DFS,
@@ -387,6 +554,10 @@ getMin(): return minStack.top
 - Q: Largest rectangle trick? **A: increasing stack + final height 0.**
 - Q: Trapping water optimal space? **A: O(1) two pointers.**
 - Q: getMin() in O(1)? **A: a second "min-so-far" stack.**
+- Q: Recursion uses which hidden structure? **A: the call stack (LIFO frames).**
+- Q: Stack from two queues — cost? **A: one op O(n), the other O(1).**
+- Q: Iterative traversal structure & space? **A: explicit stack, O(h).**
+- Q: Preorder iterative — push which child first? **A: right (so left is visited first).**
 
 ## Module 5 — Pattern Recognition
 
@@ -395,6 +566,8 @@ getMin(): return minStack.top
 - "Histogram area / maximal rectangle" → **monotonic (increasing) stack**.
 - "Trap water / two walls" → **two pointers or stack**.
 - "Evaluate / convert an expression" → **stack (postfix / Shunting-Yard)**.
+- "Traverse a tree without recursion" → **explicit stack**.
+- "Convert recursion to iteration" → **simulate the call stack with a stack**.
 
 ## Module 5 — Interview Questions (with follow-ups)
 
@@ -409,6 +582,9 @@ getMin(): return minStack.top
 - **GATE favourites:** infix↔postfix↔prefix **conversion and evaluation** (very
   frequently asked), tracing stack push/pop sequences, "which output sequences
   are possible from a stack", and stack-based DFS.
+- **Also common:** the **call stack / activation record** (frame = params +
+  locals + return address), recursion-to-iteration conversion, and iterative
+  traversal order.
 - **SEBI/RBI IT:** conceptual MCQs on LIFO, applications, and postfix evaluation.
 
 ---

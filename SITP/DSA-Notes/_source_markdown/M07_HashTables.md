@@ -90,6 +90,30 @@ slot:
 - **Delete needs a "tombstone":** a special marker, because a truly empty slot
   would wrongly stop a future probe sequence.
 
+### Worked probe trace — linear probing (a GATE favourite)
+
+Table size **10**, `hash(k) = k % 10`, **linear probing** `(h + i) % 10`. Insert
+**23, 43, 13, 27** in order.
+
+```text
+index:  0    1    2    3      4    5    6    7      8    9
+insert 23 -> 23%10 = 3           -> slot 3 free  -> place at 3
+insert 43 -> 43%10 = 3 (taken)   -> try 4        -> place at 4
+insert 13 -> 13%10 = 3 (taken)   -> 4 taken, try 5 -> place at 5
+insert 27 -> 27%10 = 7           -> slot 7 free  -> place at 7
+
+final:  .    .    .    23    43   13    .    27    .    .
+                       (0)  (+1) (+2)       (0 probes)
+
+probes: 23->1, 43->2, 13->3, 27->1   (a "probe" = each slot examined)
+```
+
+This clustering — 43 and 13 piling up right after 23 — is exactly the **primary
+clustering** weakness of linear probing. **Quadratic probing** `(h + i²) % 10`
+would place 13 at `(3+4)%10 = 7`… but 7 is later needed by 27, showing why probe
+order matters in exam questions. **Double hashing** uses a second hash for the
+step so keys with the same home slot spread differently.
+
 ### Chaining vs Open Addressing (interview comparison)
 
 | | Chaining | Open addressing |
@@ -98,6 +122,36 @@ slot:
 | Cache | poor | good |
 | High load factor | OK | degrades fast (keep α < ~0.7) |
 | Delete | easy | needs tombstones |
+
+### Perfect vs universal hashing (brief)
+
+Two theory ideas GATE and interviews sometimes name-drop:
+
+- **Universal hashing:** pick the hash function **at random** from a carefully
+  designed *family* of functions. Then for any two distinct keys, the *expected*
+  collision probability is ≤ 1/m (m = table size). This defends against
+  adversarial inputs — an attacker cannot know your function in advance
+  (mitigates "hash flooding"). It guarantees good behaviour **on average over the
+  random choice**, not for every fixed function.
+- **Perfect hashing:** for a **static, known** key set, build a hash function
+  with **zero collisions** → true **O(1) worst-case** lookup. The standard
+  construction is **two levels** (FKS): a top table, and for each bucket a small
+  second table sized to that bucket's collisions, giving O(n) total space. Used
+  for fixed dictionaries (keywords, CD-ROM indexes).
+
+> **One-liner:** universal = *random* function, good on average, beats attackers;
+> perfect = *no collisions* for a *fixed* key set, O(1) worst case.
+
+### String hashing & collisions (a quick note)
+
+The polynomial rolling hash (Module 3) `h = (h·B + c) mod M` can collide when two
+different strings map to the same value — an **anagram-like** clash or a
+deliberately crafted one. Defences:
+
+- Use a **large prime modulus** `M` and a random base `B` (harder to attack).
+- **Double hashing** for strings: keep **two** independent hashes; a collision
+  now needs both to clash at once (astronomically unlikely). Common in
+  competitive programming (Rabin–Karp, string sets).
 
 ### MCQs
 
@@ -129,6 +183,47 @@ array (usually 2×) and **re-insert** every item.
 1. Load factor formula? → **items / buckets**.
 2. What happens at a high load factor? → **rehash** (grow + re-insert).
 3. Amortised insert cost despite O(n) rehash? → **O(1)**.
+
+---
+
+## 7.3a Ordered vs Unordered Map, and When a Hashmap Is Wrong
+
+### Ordered map vs unordered map (a common interview/GATE contrast)
+
+| | Unordered (hash) map | Ordered (tree) map |
+|---|---|---|
+| Backing structure | hash table | balanced BST (Module 8) |
+| insert / erase / find | **O(1) average** | **O(log n)** always |
+| Worst case | O(n) (bad collisions) | **O(log n)** guaranteed |
+| Keys in sorted order? | **no** | **yes** (in-order walk) |
+| Range / "next key ≥ x" query | not supported | **O(log n)** |
+| C++ name | `unordered_map` | `map` |
+| Java name | `HashMap` | `TreeMap` |
+
+> **Interview line:** "Use the hash map for raw speed; use the ordered/tree map
+> when you also need **sorted iteration**, **range queries**, or a **guaranteed**
+> worst case." A hash map has *no order at all*.
+
+### When a hashmap is the WRONG choice
+
+- **You need sorted order or range queries** ("all keys between 10 and 50",
+  "smallest key ≥ x") → use a **balanced BST / ordered map** (Module 8).
+- **You need the min/max repeatedly** and updates → use a **heap** (Module 6),
+  not a hashmap (a hashmap has no cheap min).
+- **Prefix / autocomplete lookups on strings** → use a **Trie** (Module 8), which
+  a hashmap of full strings cannot do.
+- **Hard real-time / worst-case guarantees** (avionics, some DB internals) → hash
+  worst case is O(n); a balanced tree's O(log n) is guaranteed.
+- **Tiny key sets or dense small integer keys** → a plain **array** indexed
+  directly is faster and simpler (no hashing overhead).
+- **Adversarial untrusted keys** → a naive hashmap risks **hash flooding**; use
+  universal/randomised hashing or a tree map.
+
+### MCQs
+
+1. Ordered map find cost vs unordered? → **O(log n)** vs **O(1) average**.
+2. Need "all keys in a range"? → use an **ordered (tree) map**, not a hashmap.
+3. Need prefix/autocomplete on strings? → use a **Trie**, not a hashmap.
 
 ---
 
@@ -208,6 +303,43 @@ query(x):  if any bit[ hash_i(x) ] == 0 -> definitely NOT present
 
 ---
 
+## 7.6 Consistent Hashing (a system-design tie-in)
+
+### The problem with plain `hash(key) % N`
+
+To spread keys over **N servers**, the obvious rule is `server = hash(key) % N`.
+It works — until `N` changes. Add or remove **one** server and `N` changes, so
+`% N` remaps **almost every key** → a massive, cache-busting data reshuffle. In a
+distributed cache or database that is catastrophic.
+
+### The idea — a hash ring
+
+**Consistent hashing** hashes both **keys** and **servers** onto the same circle
+(0 … 2³²−1). A key belongs to the **first server found clockwise** from the key's
+position. Now adding/removing a server only moves the keys **between it and its
+neighbour** — on average just **1/N of the keys**, not all of them.
+
+![Consistent hashing ring: keys and servers hash onto a circle; each key goes to the next server clockwise, so adding a node moves only a small slice of keys.](images/171_consistent_hashing.png)
+
+- **Virtual nodes:** place each physical server at **many** points on the ring
+  (e.g. 100 virtual copies) so load spreads **evenly** and removing a server
+  redistributes its keys across *many* others, not one unlucky neighbour.
+- **Where it is used:** Amazon **DynamoDB**, **Cassandra**, **memcached**
+  clients, and load balancers — anywhere nodes join/leave and you want minimal
+  data movement.
+
+> **Memory hook:** a **clock face** of servers — a key walks clockwise to the
+> next server. Remove one clock number and only *its* slice of time reassigns.
+
+### MCQs
+
+1. Problem with `hash % N` when N changes? → **almost all keys remap** (huge
+   reshuffle).
+2. Consistent hashing moves how many keys when a node is added? → about **1/N**.
+3. What are virtual nodes for? → **even load spread** across the ring.
+
+---
+
 ## Module 7 — Concept Review (one page)
 
 - **Hash table** = buckets + hash function; `index = hash(key) % size`; **O(1)
@@ -231,6 +363,11 @@ query(x):  if any bit[ hash_i(x) ] == 0 -> definitely NOT present
 - Q: Two Sum optimal? **A: hashmap of seen, O(n).**
 - Q: Subarray sum = k? **A: prefix sum + hashmap.**
 - Q: Bloom filter error? **A: false positives only, never false negatives.**
+- Q: Ordered vs unordered map find? **A: O(log n) vs O(1) average.**
+- Q: Need range queries / sorted keys? **A: tree/ordered map, not a hashmap.**
+- Q: Perfect vs universal hashing? **A: perfect = no collisions (static set); universal = random function, good on average.**
+- Q: Why not plain hash % N across servers? **A: N changes remap nearly all keys; use consistent hashing.**
+- Q: Consistent hashing keys moved on add? **A: ~1/N.**
 
 ## Module 7 — Pattern Recognition
 
@@ -239,6 +376,9 @@ query(x):  if any bit[ hash_i(x) ] == 0 -> definitely NOT present
 - "Group things by a signature" → **hashmap keyed by the signature**.
 - "Need O(1) get/put with recency" → **hashmap + linked list (LRU)**.
 - "Huge set, only need 'probably present'" → **Bloom filter**.
+- "Need sorted keys / range / next-greater key" → **ordered (tree) map, not hash**.
+- "Distribute keys over servers that join/leave" → **consistent hashing (ring)**.
+- "Prefix / autocomplete on strings" → **Trie, not a hashmap of strings**.
 
 ## Module 7 — Interview Questions (with follow-ups)
 
@@ -254,7 +394,11 @@ query(x):  if any bit[ hash_i(x) ] == 0 -> definitely NOT present
 - **GATE favourites:** **linear/quadratic/double hashing** probe sequences (trace
   where keys land), load factor effects, chaining vs open addressing, and
   "number of probes" calculations. Very frequently tested.
+- **Also asked:** hash-table vs balanced-BST trade-offs (O(1) avg vs O(log n)
+  guaranteed), and the "leave-one-slot" style capacity/probing details.
 - **SEBI/RBI IT:** conceptual MCQs on hashing, collisions, and applications.
+- **SEBI/RBI (system design angle):** rounds may touch **consistent hashing** and
+  **Bloom filters**.
 
 ---
 

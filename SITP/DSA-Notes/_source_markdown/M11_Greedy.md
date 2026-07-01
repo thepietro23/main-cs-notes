@@ -74,6 +74,39 @@ allowed to never look back".
 > (exchange / stays-ahead) or test a counterexample. If it fails, fall back to
 > **DP**.
 
+### How to actually WRITE an exchange-argument proof (4-step recipe)
+
+Examiners want the *structure*, not hand-waving. Every exchange proof follows the
+same four beats — memorise them:
+
+1. **Assume** an optimal solution `OPT` that **differs** from the greedy one `G`.
+2. **Locate the first place they differ** (the first choice greedy makes that
+   `OPT` does not).
+3. **Exchange** that one choice in `OPT` for the greedy choice, and argue the
+   result is **still valid and no worse** (same or better objective).
+4. **Repeat / induct:** each exchange makes `OPT` agree with `G` one step more,
+   without hurting it. After finitely many swaps `OPT` becomes `G`, so `G` is also
+   optimal. ∎
+
+> **Memory hook:** "**Assume, Find first diff, Swap-no-worse, Repeat**" — the same
+> skeleton proves activity selection, Huffman, EDF lateness, and MST.
+
+### Why greedy coin change fails — the actual trace
+
+Coins `{1, 3, 4}`, target `6`. Greedy always grabs the **largest coin ≤ remaining**:
+
+```text
+remaining = 6 -> take 4 (largest <=6), remaining = 2
+remaining = 2 -> take 1 (no 3 or 4 fits),  remaining = 1
+remaining = 1 -> take 1,                    remaining = 0
+greedy answer = {4,1,1} = 3 coins
+optimal       = {3,3}   = 2 coins   (greedy is WORSE by 1 coin)
+```
+
+The greedy choice `4` was **locally** best but **globally** wrong: taking `4`
+strands a remainder (`2`) that only `1`-coins can pay. No exchange argument works
+because the choice is not safe → the greedy-choice property **fails** → use **DP**.
+
 > **Memory hook:** a greedy hiker always steps uphill — great for reaching a
 > nearby peak, but it can get stuck on a **small hill** instead of Everest (a
 > local, not global, optimum).
@@ -368,6 +401,27 @@ edge crossing any partition is safe):
 MST has both the greedy-choice property and optimal substructure → greedy is
 provably optimal.
 
+### Dijkstra is greedy too (shortest paths)
+
+**Dijkstra's shortest-path** algorithm (Module 10b) is the other famous greedy on
+graphs. It repeatedly **finalises the unvisited vertex with the smallest tentative
+distance** — once a vertex is popped from the min-heap, its distance is *locked in*
+and never reconsidered. That "pop-the-nearest and commit" step is the greedy
+choice.
+
+- **Why it's correct:** when the closest unfinalised vertex `u` is popped, no
+  shorter path to `u` can exist through a still-unfinalised vertex, because every
+  such vertex is already **farther** than `u` and edge weights are
+  **non-negative**. So committing to `u`'s distance is safe. This is an
+  exchange-style argument.
+- **The catch:** the proof **needs non-negative weights**. With a negative edge, a
+  later, longer-looking path can turn out cheaper, breaking the greedy choice — so
+  Dijkstra fails and you need **Bellman–Ford** (a DP, Module 10b).
+
+> **Memory hook:** Prim and Dijkstra are twins — both "grow a set, always pull in
+> the nearest outside vertex via a min-heap." Prim compares **edge weight**;
+> Dijkstra compares **distance from source**.
+
 ### Other classic greedy problems (recognise the choice)
 
 | Problem | Greedy choice |
@@ -401,6 +455,8 @@ index `i`.
 2. Job sequencing — sort by? → **profit**, place in latest free slot ≤ deadline.
 3. Why are Kruskal/Prim greedy-correct? → the **cut property** (matroid).
 4. Best Time to Buy/Sell Stock II greedy? → **sum all positive deltas**.
+5. Dijkstra is greedy — its greedy choice? → **finalise the nearest unvisited
+   vertex** (min-heap); needs **non-negative** weights.
 
 ### Problems
 
@@ -472,6 +528,10 @@ goes for its best remaining option.
 - Q: Fractional vs 0/1 knapsack? **A: ratio-greedy vs DP.**
 - Q: Min max lateness? **A: EDF (sort by deadline).**
 - Q: Kruskal correct because? **A: cut property (graphic matroid).**
+- Q: Exchange-argument recipe? **A: Assume OPT differs; find first diff; swap in
+  the greedy choice no-worse; repeat until OPT = greedy.**
+- Q: Dijkstra greedy choice & precondition? **A: pop the nearest unvisited vertex;
+  needs non-negative edges (else Bellman-Ford).**
 
 ## Module 11 — Pattern Recognition
 
@@ -485,6 +545,10 @@ goes for its best remaining option.
 - "Connect everything cheaply" → **MST (greedy / cut property)**.
 - "Stable pairing / matching" → **Gale–Shapley**.
 - "Can't prove the local choice is safe" → **switch to DP**.
+- "Prove this greedy is optimal" → **exchange argument** (assume OPT differs, swap
+  in greedy choice no-worse, repeat) or **greedy-stays-ahead**.
+- "Shortest path, non-negative weights" → **Dijkstra** (greedy); negative edges →
+  **Bellman–Ford**.
 
 ## Module 11 — Interview Questions (with follow-ups)
 

@@ -67,6 +67,36 @@ is wasted. The fix is a **circular queue**.
 
 ---
 
+## 6.1a Why BFS Needs a Queue (the connection)
+
+**Breadth-first search** (Module 10) explores a graph/tree **level by level**:
+all nodes at distance 1, then distance 2, and so on. A **queue** is what enforces
+that order — you dequeue a node, then enqueue all its unvisited neighbours to the
+back, so nearer nodes are always served before farther ones (FIFO).
+
+```text
+# BFS skeleton                               Time O(V + E)
+queue = [start]; mark start visited
+while queue not empty:
+    node = dequeue()               # nearest unexpanded node
+    for nb in neighbours(node):
+        if nb not visited:
+            mark visited; enqueue(nb)
+```
+
+- **Swap the queue for a stack** and you get DFS instead — the *data structure*
+  decides the search order. This is the cleanest way to remember the pair:
+  **queue → BFS (FIFO, level order)**, **stack → DFS (LIFO, deep first)**.
+- Because BFS visits by increasing distance, on an **unweighted** graph it finds
+  the **shortest path** (fewest edges). (Weighted → Dijkstra, a heap — 6.5.)
+
+### MCQs
+
+1. BFS uses which structure, DFS which? → **queue** (BFS) vs **stack** (DFS).
+2. BFS on an unweighted graph finds? → the **shortest path** (fewest edges).
+
+---
+
 ## 6.2 Circular Queue (ring buffer)
 
 ### Idea
@@ -87,6 +117,35 @@ dequeue():  if empty -> reject
 
 - **Full vs empty** both can look like `front == rear` — track a `size` counter
   (or leave one slot empty) to tell them apart. (Classic GATE trap.)
+
+### The `(rear+1) % n` trap — two ways to tell full from empty
+
+The problem: if you use only `front` and `rear`, then **both** an empty queue and
+a full queue satisfy `front == rear`. You cannot distinguish them. Two standard
+fixes:
+
+```text
+# Fix 1: keep a size counter (simplest, uses all n slots)
+empty:  size == 0
+full:   size == capacity
+
+# Fix 2: sacrifice ONE slot (no counter; classic exam version)
+empty:  front == rear
+full:   (rear + 1) % capacity == front     # rear is one step behind front
+#   -> a table of n slots can hold at most n-1 items in this scheme
+```
+
+> **The trap in exams:** with the "leave one slot empty" scheme, capacity for
+> **n** array cells is only **n − 1** items. A question that fills all `n` cells
+> and asks "is it full?" is testing whether you remember the wasted slot.
+
+Worked (capacity 4, one-slot-empty scheme):
+
+```text
+start: front=0 rear=0 (empty, since front==rear)
+enq A: rear=1     enq B: rear=2     enq C: rear=3
+now (rear+1)%4 = 0 == front  -> FULL (only 3 items in 4 cells)
+```
 
 > **Memory hook:** a **circular running track** — after the last lane you are back
 > at lane 0.
@@ -126,6 +185,28 @@ push_front, pop_front, push_back, pop_back   # all O(1)
   pop, if `out` is empty, pour everything from `in` into `out` (reversing order),
   then pop `out`. **Amortised O(1)**.
 - **Stack with two queues:** doable but one operation becomes O(n).
+
+```text
+# Queue with two stacks                      enqueue O(1), dequeue amortised O(1)
+enqueue(x): in.push(x)
+dequeue():  if out is empty:
+                while in not empty: out.push(in.pop())   # reverse order once
+            return out.pop()
+peek():     same as dequeue but return out.top without popping
+```
+
+**Why amortised O(1):** each element is moved from `in` to `out` **at most once**
+in its lifetime. So across `n` operations the total moving work is O(n) → **O(1)
+per operation on average**, even though a single dequeue that triggers a transfer
+looks O(n). (Same amortised idea as dynamic-array doubling, Module 2.)
+
+```text
+# Worked: enqueue 1,2,3 then dequeue twice
+enqueue 1,2,3 ->  in=[1,2,3]   out=[]
+dequeue -> out empty, pour: out=[3,2,1] (1 on top); pop 1   -> returns 1
+dequeue -> out=[3,2] not empty; pop 2                       -> returns 2
+# note: two dequeues in a row are cheap because 'out' is already prepared
+```
 
 ### MCQs
 
@@ -233,6 +314,43 @@ return the saved min
 > **Memory hook:** a **company hierarchy** — the boss (min or max) is always on
 > top; promotions (sift up) and demotions (sift down) follow the chain.
 
+### Worked trace — push into a min-heap
+
+Insert **2** into the min-heap `[5, 8, 9, 12, 15]` (array = level order).
+
+```text
+tree before:            5
+                      /   \
+                     8     9
+                    / \
+                  12  15
+
+push 2: add at the end -> [5, 8, 9, 12, 15, 2]   (2 is right child of 9)
+sift up: 2 < parent 9  -> swap -> [5, 8, 2, 12, 15, 9]
+         2 < parent 5  -> swap -> [2, 8, 5, 12, 15, 9]
+         2 is root -> stop
+
+tree after:             2
+                      /   \
+                     8     5
+                    / \    /
+                  12  15  9
+```
+
+### Worked trace — pop-min from that heap
+
+```text
+heap: [2, 8, 5, 12, 15, 9]      (min = 2 at root)
+1. save root 2 (this is the answer)
+2. move LAST element 9 to the root -> [9, 8, 5, 12, 15]
+3. sift down: children of 9 are 8 and 5; smaller is 5 -> 9 > 5 -> swap
+   -> [5, 8, 9, 12, 15]
+   9 now has child 15 (index) -> 9 < 15 -> stop
+result: returned 2; heap = [5, 8, 9, 12, 15]
+```
+
+Both operations touch only one root-to-leaf path → **O(log n)** swaps.
+
 ### Complexity summary
 
 | Operation | Time |
@@ -274,6 +392,34 @@ heap now holds the K largest
 
 Same idea — the root of a size-K heap is the K-th largest (LC 215). Quickselect
 (Module 12) gives O(n) average as an alternative.
+
+**Streaming K-th largest (LC 703).** Numbers arrive one at a time and after each
+you must report the current K-th largest. Keep a **min-heap of size K**; the root
+is always the answer.
+
+```text
+# KthLargest in a stream                     add() = O(log k)
+init(k, nums): heap = min-heap; for x in nums: add(x)
+add(x):
+    heap.push(x)
+    if heap.size > k: heap.pop()      # drop the smallest, keep top k
+    return heap.top                   # the k-th largest so far
+
+# k=3, add 4 -> heap[?]; stream keeps only the 3 biggest, root = 3rd largest
+```
+
+- **Why size K, not full sort?** You never store more than K items and each
+  insert is O(log k) — ideal when the stream is huge or unbounded.
+
+### When to reach for a priority queue
+
+- You repeatedly need **"the current best/worst"** while items keep arriving or
+  changing (Dijkstra, Prim, task scheduling by priority).
+- You need **top-K / K-th** without a full sort, especially on a **stream**.
+- You are **merging many sorted sequences** (min-heap of heads).
+- **Do NOT** use a heap when you need items in *sorted* order overall (just sort,
+  O(n log n)), or when you need fast **search/lookup by key** (a heap has no O(1)
+  find — use a hashmap, Module 7), or when K ≈ n (sorting is simpler).
 
 ### C) Merge K sorted lists/arrays
 
@@ -333,6 +479,10 @@ both tops (even total). Each insert is O(log n); median is O(1). (LC 295.)
 - Q: push/pop/peek/build costs? **A: log n / log n / O(1) / O(n).**
 - Q: K largest efficiently? **A: size-K min-heap, O(n log k).**
 - Q: Streaming median? **A: two heaps (max-heap + min-heap).**
+- Q: BFS vs DFS structure? **A: queue (FIFO) vs stack (LIFO).**
+- Q: Circular queue "leave one slot" capacity? **A: n-1 items in n cells.**
+- Q: Queue from two stacks cost? **A: amortised O(1) (each item moved once).**
+- Q: Streaming k-th largest structure? **A: min-heap of size k, root = answer.**
 
 ## Module 6 — Pattern Recognition
 
@@ -343,6 +493,8 @@ both tops (even total). Each insert is O(log n); median is O(1). (LC 295.)
 - "Always need the current smallest/largest" → **priority queue**.
 - "Merge many sorted sequences" → **min-heap of heads**.
 - "Median of a stream" → **two heaps**.
+- "Explore level by level / shortest path (unweighted)" → **queue (BFS)**.
+- "K-th largest updated as data streams in" → **size-K min-heap**.
 
 ## Module 6 — Interview Questions (with follow-ups)
 

@@ -35,11 +35,26 @@ node turns any directed graph into a **DAG**.
 > **Uses:** 2-SAT, dependency analysis, finding cycles/feedback in directed
 > graphs, condensing a graph before further processing.
 
+### Tarjan vs Kosaraju — quick comparison
+
+| | **Kosaraju** | **Tarjan** |
+|---|---|---|
+| DFS passes | **two** (graph, then reversed graph) | **one** |
+| Needs the reversed graph? | **yes** | no |
+| Extra state | finish-order stack | discovery time + **low-link** + stack |
+| Time | **O(V+E)** | **O(V+E)** |
+| Easier to remember | **yes** (two plain DFS) | fewer passes, slightly trickier |
+
+> **Memory hook:** Kosaraju = "DFS twice, reverse in between"; Tarjan = "one DFS,
+> watch the low-link." Both are O(V+E) — pick whichever you recall under pressure.
+
 ### MCQs
 
 1. SCC definition? → maximal set with **mutual reachability** (directed).
 2. SCC algorithms & time? → **Kosaraju / Tarjan**, O(V+E).
 3. Condensing SCCs gives a? → **DAG**.
+4. Which SCC method needs the reversed graph? → **Kosaraju** (two passes).
+5. Which uses a single DFS with low-link? → **Tarjan**.
 
 ---
 
@@ -61,11 +76,32 @@ values (the earliest node reachable from a subtree). **O(V+E)**.
 > **Uses:** finding **single points of failure** in networks (if this cable/router
 > dies, who gets cut off?), and as building blocks for biconnected components.
 
+### Why they matter (and the low-link test)
+
+They pinpoint **fragility**. In a data-centre or road network, a bridge is a
+cable whose failure splits the network; an articulation point is a router/junction
+whose failure does the same. Redundant designs deliberately add edges so that
+**no** bridges remain (every part stays reachable if any one link dies).
+
+The DFS test uses `low[v]` = the earliest discovery time reachable from v's
+subtree via one back edge:
+
+```text
+edge (u,v) in the DFS tree is a BRIDGE          if low[v] >  disc[u]
+non-root u is an ARTICULATION POINT             if low[v] >= disc[u] for a child v
+root of the DFS is an articulation point        if it has >= 2 DFS-tree children
+```
+
+> **Intuition:** if v's subtree has **no** back edge climbing above u, then u (or
+> the edge u–v) is the *only* way in — remove it and the subtree is cut off.
+
 ### MCQs
 
 1. A bridge is a? → an **edge** whose removal disconnects the graph.
 2. An articulation point is a? → a **node** whose removal disconnects it.
 3. Found using? → **DFS discovery + low-link** values, O(V+E).
+4. Bridge condition for tree edge (u,v)? → **low[v] > disc[u]**.
+5. Root is an articulation point when? → it has **≥ 2 DFS-tree children**.
 
 ---
 
@@ -106,11 +142,31 @@ to the same depth, then move up together — **O(height)** per query.
 - **Euler tour + RMQ:** another classic O(1)-query approach (with O(n log n)
   preprocessing).
 
+### Binary lifting — the complexity, spelled out
+
+```text
+up[k][v] = the (2^k)-th ancestor of v      table size n × log n
+up[0][v] = parent[v]                         # base: 2^0 = direct parent
+up[k][v] = up[k-1][ up[k-1][v] ]             # jump 2^(k-1) twice = 2^k
+
+Preprocess: fill the table          O(n log n) time, O(n log n) space
+Query LCA(a,b):
+  1. lift the deeper node up until depths match   (log n jumps)
+  2. jump both up together in decreasing powers of 2 while ancestors differ
+  3. their common parent is the LCA               -> O(log n) per query
+```
+
+- Total: **O(n log n)** build, **O(log n)** per query. The "powers of two" trick
+  is the same idea as binary representation — any height difference is covered by
+  a few jumps of size 2^k.
+
 ### MCQs
 
 1. LCA = ? → the **deepest common ancestor** of two nodes.
 2. Binary lifting query time after prep? → **O(log n)**.
 3. What does binary lifting precompute? → each node's **2^k-th ancestors**.
+4. Binary lifting table size / build time? → **O(n log n)** both.
+5. Recurrence for the table? → `up[k][v] = up[k-1][ up[k-1][v] ]`.
 
 ---
 
@@ -165,6 +221,31 @@ max flow = total pushed
 > **Memory hook:** water pipes — the most water you can push from tap to drain is
 > limited by the **tightest bottleneck** (the min cut).
 
+### The two ideas that make it work
+
+- **Augmenting path:** any s→t path in the *residual* graph that still has spare
+  capacity. Push flow along it equal to its **bottleneck** (smallest spare edge).
+- **Residual edge:** when you push `f` along `u→v`, you also add a **backward**
+  edge `v→u` of capacity `f`. This lets a later path *undo* an earlier choice —
+  the trick that guarantees the algorithm finds the true maximum, not a dead end.
+- The algorithm stops when **no augmenting path remains**; by Max-Flow Min-Cut,
+  the reachable-from-s set at that point defines the **minimum cut**, and its
+  capacity equals the flow.
+
+> **Max-Flow = Min-Cut (statement):** in any flow network the **maximum** s→t flow
+> value equals the **minimum** total capacity of edges whose removal separates s
+> from t. (Proof idea: a flow can never exceed any cut; when no augmenting path is
+> left, one specific cut is saturated exactly to the flow.)
+
+### Bipartite matching & König's theorem
+
+- **Maximum bipartite matching** = the most worker↔job pairs with no one shared.
+  Model it as flow: add source `s`→every worker (cap 1), every job→sink `t`
+  (cap 1), each allowed pair as a cap-1 edge; the **max flow = maximum matching**.
+- **König's theorem:** in a bipartite graph, the size of the **maximum matching**
+  equals the size of the **minimum vertex cover**. This is the bipartite special
+  case of Max-Flow Min-Cut and is a common GATE/CP fact.
+
 ### When (not) to use
 
 This is **ICPC / advanced-interview** territory — rarely needed in standard FAANG
@@ -176,6 +257,8 @@ a flow problem") even if you don't code Dinic from memory.
 1. Max-Flow equals? → **Min-Cut** (the theorem).
 2. Edmonds-Karp time? → **O(V·E²)**; Dinic **O(V²·E)**.
 3. Bipartite matching reduces to? → **max-flow** (capacity-1 edges).
+4. Why add backward residual edges? → to let a later path **undo** earlier flow.
+5. König's theorem (bipartite)? → **max matching = min vertex cover**.
 
 ---
 
@@ -200,6 +283,10 @@ a flow problem") even if you don't code Dinic from memory.
 - Q: Euler tour enables? **A: subtree queries as array ranges.**
 - Q: LCA via binary lifting? **A: O(log n) query, O(n log n) prep.**
 - Q: HLD path query time? **A: O(log² n).**
+- Q: Kosaraju vs Tarjan passes? **A: two vs one DFS.**
+- Q: Bridge condition? **A: low[v] > disc[u].**
+- Q: Binary lifting build cost? **A: O(n log n) time and space.**
+- Q: König's theorem? **A: max matching = min vertex cover (bipartite).**
 
 ## Module 10c — Pattern Recognition
 
@@ -209,6 +296,8 @@ a flow problem") even if you don't code Dinic from memory.
 - "Common ancestor / distance between tree nodes (many queries)" → **LCA (binary
   lifting)**.
 - "Many path-sum/max/update queries on a tree" → **HLD**.
+- "Assign workers to jobs / max pairings" → **bipartite matching (max-flow)**.
+- "Most flow / cheapest set of edges to cut s from t" → **max-flow = min-cut**.
 
 ## Module 10c — Interview / CP Questions
 

@@ -83,6 +83,31 @@ what lets the same `path` object visit every branch.
   (2ⁿ leaves); the permutation tree has `Σ_{k=0..n} n!/(n−k)!` nodes. "O(2ⁿ)" /
   "O(n!)" are **leaf** counts.
 
+### How to reason about backtracking time — branching^depth
+
+The skeleton makes the cost formula concrete. At every node you loop over the
+choices (the **branching factor `b`**) and the tree is as deep as the number of
+decisions (the **depth `d`**). So the tree has roughly **`b^d` nodes**, and total
+time is `O(b^d × work per node)`.
+
+```text
+technique          branching b        depth d      => leaves
+---------------------------------------------------------------
+subsets            2 (in/out)         n            2^n
+permutations       n, n-1, ... , 1    n            n!
+combinations C(n,k) up to n           k            C(n,k)
+N-Queens           N (columns)        N            <= N^N, but pruned to ~ small
+m-coloring         m (colors)         V            m^V
+```
+
+Pruning does **not** change this worst-case bound, but it slashes the *practical*
+node count: a branch cut at depth `j` removes an entire `b^(d−j)` subtree. That is
+why N-Queens, whose naive bound is `N^N`, is solvable for `N=8` in microseconds —
+the diagonal/column checks prune almost everything early.
+
+> **Memory hook:** backtracking time = **(choices per step) ^ (number of steps)**;
+> pruning removes whole subtrees but not the worst-case exponent.
+
 ### Backtracking vs Branch-and-Bound vs DP
 
 | | Backtracking | Branch & Bound | DP |
@@ -96,6 +121,10 @@ what lets the same `path` object visit every branch.
 1. The three backtracking actions? → **choose, explore, un-choose**.
 2. Backtracking recursion depth (subsets/perms)? → **O(n)** (not exponential).
 3. Subset tree total nodes? → **2^(n+1) − 1** (2ⁿ leaves).
+4. Backtracking worst-case time in one phrase? → **branching^depth** (b^d nodes ×
+   work/node).
+5. Does pruning change the worst-case exponent? → **no** (it only cuts practical
+   node count, removing whole `b^(d−j)` subtrees).
 
 ---
 
@@ -113,6 +142,28 @@ what lets the same `path` object visit every branch.
 > (combinations/subsets); a **`used[]` array** (or in-place swap) allows revisiting
 > earlier elements but forbids reusing the same index (permutations). Confusing
 > them gives O(n!) when you wanted O(2ⁿ), or duplicate combinations.
+
+### Subsets vs combinations vs permutations — a 2-question decision
+
+Two yes/no questions pick the right structure every time:
+
+```text
+Q1: does ORDER matter? (is [1,2] different from [2,1]?)
+      YES  -> PERMUTATION  (used[] array, loop from 0)
+      NO   -> go to Q2
+
+Q2: is the SIZE fixed to exactly k?
+      YES  -> COMBINATION  (start index, record only when size == k)
+      NO   -> SUBSET       (start index, record at EVERY node, all sizes)
+```
+
+- **Subsets** = all combinations of *every* size (`C(n,0)+…+C(n,n) = 2ⁿ`).
+- **Combinations** = subsets of one fixed size `k` (`C(n,k)`).
+- **Permutations** = arrangements where order counts (`n!`, or `n!/(n−k)!` for
+  length `k`).
+
+> **Memory hook:** **order? → permutation. Fixed size? → combination. Neither? →
+> subset.**
 
 ![Subsets of [1,2]: at each element choose include/exclude; permutations pick an unused element each step.](images/101_subsets_perms.png)
 
@@ -212,6 +263,30 @@ place(row):
 
 - **O(1) safety check** with three hash sets: used **columns**, **diagonals
   (`row−col`)**, **anti-diagonals (`row+col`)**.
+
+**Worked pruning trace — 4×4 (find the first solution).** Place one queen per row;
+`✓` = try, `✗` = attacked (pruned before recursing):
+
+```text
+row 0: try col 0  -> place Q at (0,0)
+  row 1: col 0 ✗(same column)  col 1 ✗(diagonal 0,0-1,1)  col 2 ✓ -> place (1,2)
+    row 2: col 0 ✗(col)  col 1 ✗(anti-diag 1+2=3 = 2+1)  col 2 ✗(col)  col 3 ✗(diag) 
+           -> NO valid column, DEAD END, backtrack
+    remove (1,2); try col 3 ✓ -> place (1,3)
+    row 2: col 0 ✗  col 1 ✓ -> place (2,1)
+      row 3: col 0 ✗  col 1 ✗  col 2 ✗  col 3 ✗ -> DEAD END, backtrack
+      remove (2,1); no more cols in row 2 -> backtrack
+    remove (1,3); no more cols in row 1 -> backtrack
+  remove (0,0)
+row 0: try col 1 -> place (0,1)
+  row 1: col 3 ✓ -> (1,3)
+    row 2: col 0 ✓ -> (2,0)
+      row 3: col 2 ✓ -> (3,2)   ALL 4 ROWS FILLED -> SOLUTION [1,3,0,2]
+```
+
+The whole `col 0` start subtree is abandoned after only a handful of node visits —
+that is pruning doing the heavy lifting. The two solutions for `N=4` are
+`[1,3,0,2]` and its mirror `[2,0,3,1]`.
 
 **Solution counts (a GATE/ISRO favourite — memorise):**
 
@@ -355,6 +430,37 @@ excluding edges; prune branches whose lower bound exceeds the best tour so far.
 - **Memoisation** when subproblems repeat (Word Break) — backtracking → DP.
 - **Bounding** — branch & bound for optimisation.
 
+### Forward checking & constraint propagation (the smarter pruning)
+
+Plain backtracking checks a choice only *when it is about to be made*. **Forward
+checking** looks one step **ahead**: after assigning a variable, it removes the
+now-illegal values from the **domains of the not-yet-assigned** variables. If any
+future variable's domain becomes **empty**, you backtrack **immediately** —
+before ever descending into that doomed subtree.
+
+- **Sudoku example:** after writing a `5` in a cell, delete `5` from the candidate
+  lists of every cell in the same row, column, and box. If some empty cell is left
+  with **zero** candidates, this branch is already dead — undo now.
+- **Constraint propagation** is forward checking taken further: keep cascading the
+  eliminations. If a cell is reduced to a **single** candidate, fill it and
+  propagate again (the "naked single" rule). This can solve easy Sudokus with
+  almost no search.
+- **MRV pairs naturally with it:** forward checking shrinks domains; MRV (§13.7,
+  "choice ordering") then dives into the variable with the **smallest remaining
+  domain** — the one most likely to fail fast.
+
+> **Memory hook:** backtracking says "try it, then check"; **forward checking says
+> "check the future first, and quit the moment a neighbour runs out of options."**
+
+### MCQs
+
+1. Forward checking prunes by? → detecting a **future variable with an empty
+   domain** after an assignment.
+2. Reducing a cell to one candidate and filling it is? → **constraint propagation
+   (naked single)**.
+3. Best partner heuristic for forward checking? → **MRV** (fewest remaining
+   values).
+
 ---
 
 ## Module 13 — Concept Review (one page)
@@ -380,6 +486,10 @@ excluding edges; prune branches whose lower bound exceeds the best tour so far.
 - Q: N-Queens(4)/(8) solutions? **A: 2 / 92 (N=2,3 → 0).**
 - Q: Generate Parentheses n=3/4? **A: 5 / 14 (Catalan).**
 - Q: B&B vs backtracking? **A: B&B optimises via bounds; backtracking enumerates.**
+- Q: Backtracking time formula? **A: branching^depth (b^d) × work per node.**
+- Q: Forward checking? **A: after an assignment, prune future domains; backtrack if
+  any becomes empty.**
+- Q: 4-Queens solutions (as column arrays)? **A: [1,3,0,2] and [2,0,3,1].**
 
 ## Module 13 — Pattern Recognition
 
@@ -392,6 +502,10 @@ excluding edges; prune branches whose lower bound exceeds the best tour so far.
 - "Partition a string into valid pieces" → **prefix-try backtracking**.
 - "Find the BEST among exponentially many (optimise)" → **branch & bound**.
 - "Choices repeat as subproblems" → add **memoisation** (→ DP, Module 14).
+- "Order matters? fixed size?" → **permutation / combination / subset** (the 2-Q
+  decision).
+- "Constraint puzzle that's slow" → add **forward checking + MRV** (prune future
+  domains early).
 
 ## Module 13 — Interview Questions (with follow-ups)
 
@@ -409,7 +523,9 @@ excluding edges; prune branches whose lower bound exceeds the best tour so far.
   counts** (2^(n+1)−1; permutation-tree nodes) and recursion depth, **branch &
   bound** for 0/1 knapsack (LP upper bound) and TSP (matrix-reduction lower
   bound), FIFO/LIFO/LC-BB, m-coloring, Hamiltonian cycle (NP-complete), and
-  "which technique" (backtracking vs B&B vs DP) MCQs.
+  "which technique" (backtracking vs B&B vs DP) MCQs. **CSP topics** —
+  **forward checking**, **constraint propagation**, and the **MRV** heuristic —
+  are AI/DAA staples worth a line each.
 
 ---
 

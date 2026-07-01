@@ -77,6 +77,47 @@ to negate: invert all bits, then add 1
 2. n-bit signed range? → `[-2^(n-1), 2^(n-1)-1]`.
 3. `-8 >> 1` (arithmetic)? → **−4**.
 
+### Two's-complement subtraction & overflow (worked)
+
+The whole point of two's complement: **subtraction is just addition of the
+negative**, so the CPU needs only an adder. `a − b = a + (−b) = a + (~b + 1)`.
+
+**Worked (4-bit, range −8..7):** compute `5 − 3`.
+
+```text
+ 5 =  0101
+-3 = ~0011 + 1 = 1100 + 1 = 1101
+ 5 + (-3):   0101
+           + 1101
+           -------
+            10010   -> drop the carry-out (5th bit) -> 0010 = 2   ✓
+```
+
+- The **carry-out of the top bit is discarded** — that is normal, not overflow.
+
+**Signed-overflow rule (GATE trap).** Overflow happens when two same-sign
+operands give a result of the *other* sign. Detect it as **carry-into the sign
+bit ≠ carry-out of the sign bit**.
+
+```text
+4-bit example:  7 + 1 = 0111 + 0001 = 1000 = -8   (two positives -> negative!)
+  -> OVERFLOW. carry-in to bit3 = 1, carry-out of bit3 = 0, they differ.
+```
+
+- **Unsigned overflow** is different: it is exactly the **carry-out of the top
+  bit** (the result wrapped past `2ⁿ−1`). Same bits, two different overflow flags
+  — the CPU computes both and you read the one that matches your type.
+
+> **Memory hook:** *drop the final carry; you only truly overflowed if the sign
+> flipped the wrong way* (two positives make a negative, or two negatives make a
+> positive).
+
+### MCQs (overflow)
+
+1. How does hardware do `a−b`? → `a + (~b + 1)` (add the two's complement).
+2. Signed overflow test? → **carry-in ≠ carry-out** of the sign bit.
+3. `7+1` in 4-bit signed gives? → `1000` = **−8** (overflow).
+
 ---
 
 ## 15.2 The 4 Essential Operations (on bit `i`)
@@ -177,11 +218,48 @@ while x: x &= (x - 1); count++      # each step removes the lowest set bit
 - **Bitwise AND of range [m,n] (LC 201):** right-shift both ends until equal
   (counting shifts), then left-shift back — the result is the common prefix.
 
+### Brian Kernighan popcount — full worked trace
+
+`x &= (x-1)` clears the lowest set bit each pass, so the loop runs **once per set
+bit**, not 32 times. Trace `x = 156 = 10011100₂` (four 1-bits):
+
+```text
+step  x (binary)   x-1          x & (x-1)     count
+ 1    10011100     10011011     10011000        1     # cleared bit 2
+ 2    10011000     10010111     10010000        2     # cleared bit 3
+ 3    10010000     10001111     10000000        3     # cleared bit 4
+ 4    10000000     01111111     00000000        4     # cleared bit 7 -> x=0, stop
+```
+
+- 4 iterations for 4 set bits → **O(#set bits)**. A naive `for i in 0..31` loop
+  would take 32 iterations regardless. That is why Kernighan wins on sparse words.
+
+### Bit-hacks cheat sheet (memorise these)
+
+| Goal | Expression | Why it works |
+|---|---|---|
+| Clear lowest set bit | `x & (x-1)` | `x-1` flips the trailing zeros + lowest 1 |
+| Isolate lowest set bit | `x & (-x)` | `-x = ~x+1` makes only that bit agree |
+| Set lowest **clear** bit | `x \| (x+1)` | `x+1` turns the lowest 0 into a 1 |
+| Isolate lowest clear bit | `~x & (x+1)` | dual of `x & -x` |
+| Is power of two? | `x>0 && (x&(x-1))==0` | a power of two has exactly one 1 |
+| Turn off trailing 1s | `x & (x+1)` | rounds down to `…0111→…0000` boundary |
+| Swap a,b (no temp) | `a^=b; b^=a; a^=b;` | XOR is self-inverse |
+| Round up to next 2ᵏ | fill bits then `+1` | OR-shift `x\|=x>>1;…;x\|=x>>16` then `x+1` |
+| Multiply/divide by 2ᵏ | `x<<k` / `x>>k` | shift = ×/÷ 2ᵏ (signed `>>` floors) |
+| Absolute value (branchless) | `(x^(x>>31)) - (x>>31)` | `x>>31` is all-1s if negative |
+
+- **Swap dry-run** `a=5 (0101)`, `b=3 (0011)`: `a^=b→0110`; `b^=a→0101 (=5)`;
+  `a^=b→0011 (=3)`. Values swapped, no temporary. (Caveat: fails if `a` and `b`
+  are the **same variable / alias** — it zeroes it.)
+
 ### MCQs
 
 1. Isolate the lowest set bit? → `x & (-x)`.
 2. Power-of-two check? → `x>0 && (x & (x-1))==0`.
 3. Kernighan's count complexity? → **O(#set bits)** (not O(32)).
+4. Clear the lowest set bit? → `x & (x-1)`.
+5. Trace `x=156` in Kernighan: iterations? → **4** (four set bits).
 
 ---
 
@@ -198,6 +276,41 @@ for mask in 0 .. (1<<n) - 1:
     subset = [ a[j] for j in 0..n-1 if (mask >> j) & 1 ]
 # iterate submasks of a mask: for (s=mask; s; s=(s-1)&mask)   -> O(3^n) total
 ```
+
+### Bitmask as a set (the mental model for bitmask DP)
+
+Treat an `n`-bit integer as a **subset of `{0,1,…,n−1}`**. Every set operation
+becomes one machine instruction — this is why bitmask DP (Module 14c) is fast.
+
+| Set operation | Bit expression |
+|---|---|
+| empty set / universe | `0` / `(1<<n) - 1` |
+| set containing only `i` | `1 << i` |
+| add element `i` | `S \| (1 << i)` |
+| remove element `i` | `S & ~(1 << i)` |
+| test membership of `i` | `(S >> i) & 1` |
+| union `A ∪ B` | `A \| B` |
+| intersection `A ∩ B` | `A & B` |
+| difference `A \ B` | `A & ~B` |
+| symmetric diff `A △ B` | `A ^ B` |
+| is `A ⊆ B`? | `(A & B) == A` |
+| size `|S|` | `popcount(S)` |
+| complement (within n bits) | `S ^ ((1<<n) - 1)` |
+
+**Worked (n=4):** `A = {0,2} = 0101`, `B = {1,2} = 0110`.
+
+```text
+A ∪ B = 0101 | 0110 = 0111 = {0,1,2}
+A ∩ B = 0101 & 0110 = 0100 = {2}
+A \ B = 0101 & ~0110 = 0101 & 1001 = 0001 = {0}
+A △ B = 0101 ^ 0110 = 0011 = {0,1}
+```
+
+### MCQs (bitmask as set)
+
+1. Union of two sets? → `A | B`. Intersection? → `A & B`.
+2. Test `A ⊆ B`? → `(A & B) == A`.
+3. Size of the set `S`? → `popcount(S)`.
 
 ### Gray Code
 
@@ -249,6 +362,10 @@ gray(i) = i ^ (i >> 1)
 - Q: Power of two test? **A: `x>0 && (x&(x-1))==0`.**
 - Q: Gray code formula? **A: `i ^ (i>>1)`.**
 - Q: Hamming distance? **A: popcount(a^b).**
+- Q: Signed-overflow test on `a+b`? **A: carry-in ≠ carry-out of the sign bit.**
+- Q: How does hardware subtract `a−b`? **A: `a + (~b + 1)`.**
+- Q: Set ops on a bitmask (∪ / ∩ / \ / △)? **A: `|` / `&` / `& ~` / `^`.**
+- Q: Test `A ⊆ B` on masks? **A: `(A & B) == A`.**
 
 ## Module 15 — Pattern Recognition
 
@@ -258,6 +375,9 @@ gray(i) = i ^ (i >> 1)
 - "Power of two, lowest set bit, range index" → **bit identities** (`x&(x-1)`,
   `x&(-x)`).
 - "Consecutive differ by one bit" → **Gray code**.
+- "State = which items are chosen (small n)" → **integer bitmask as a set**.
+- "Signed arithmetic wrapping / overflow flag" → **two's-complement + sign-bit
+  carry rule**.
 
 ## Module 15 — Interview Questions (with follow-ups)
 

@@ -88,10 +88,59 @@ because every real node now always has a node before it.
 > **Memory hook:** a dummy node is a **placeholder zero** — like the extra `0` in
 > a prefix-sum array (Module 2), it makes the edge cases disappear.
 
+### The dummy-node technique — a worked pattern
+
+The idea: create `dummy` with `dummy.next = head`, keep a `tail` (or `prev`)
+pointer starting at `dummy`, do all your rewiring through it, and finally
+`return dummy.next` as the (possibly new) head. You never write a separate
+"is this the head?" branch.
+
+```text
+# Remove all nodes with value == target                Time O(n), Space O(1)
+dummy = new Node; dummy.next = head
+prev = dummy
+cur  = head
+while cur:
+    if cur.val == target:
+        prev.next = cur.next     # unlink; prev stays put
+    else:
+        prev = cur               # keep; advance prev
+    cur = cur.next
+return dummy.next                # correct even if the old head was removed
+```
+
+Without the dummy you would need a special loop just to strip leading target
+nodes before the main loop. The dummy folds that case in for free (LC 203,
+"Remove Linked List Elements"). The same trick powers **merge two sorted lists**
+(4.6) and **remove Nth from end** (4.8).
+
+> **When NOT to bother:** if the operation can never touch the head (e.g. delete
+> a node given only a pointer to *it*), a dummy adds nothing.
+
+### Doubly vs singly linked — operations table
+
+| Operation | Singly | Doubly |
+|---|---|---|
+| Insert at front | **O(1)** | **O(1)** |
+| Insert at back (tail known) | **O(1)** | **O(1)** |
+| Delete front | **O(1)** | **O(1)** |
+| Delete back (tail known) | **O(n)** (need prev of tail) | **O(1)** (use `prev`) |
+| Delete a *given* node `p` | **O(n)** (must find `p.prev`) | **O(1)** (`p.prev` known) |
+| Traverse backwards | not possible | **O(n)** |
+| Extra memory per node | 1 pointer | 2 pointers |
+
+> **Interview line:** the one thing doubly buys you is **O(1) delete of a known
+> node** (and backward walking) — that is exactly why the LRU cache (4.7) needs
+> doubly, not singly.
+
 ### MCQs
 
 1. Which list lets you delete a known node in O(1)? → **doubly linked**.
 2. What problem does a dummy head solve? → **head/empty edge cases**.
+3. Delete the *tail* in a singly list with only `head`? → **O(n)** (walk to find
+   the second-last node).
+4. In a doubly list, delete a given node `p`? → **O(1)** (you already have
+   `p.prev`).
 
 ---
 
@@ -159,11 +208,66 @@ reverse(node):
 > **Memory hook:** "save next → flip → step forward." Say it out loud while
 > coding; it prevents the classic *lost-list* bug.
 
+### Worked pointer trace — reverse [1→2→3]
+
+Watch the three pointers each round. `null` is written as `#`.
+
+```text
+start:   prev=#     cur=1 -> 2 -> 3 -> #
+
+round 1: nxt = cur.next (=2)
+         cur.next = prev  ->   1 -> #        (1 now points back to #)
+         prev = 1 ; cur = 2
+         state:  # <- 1     2 -> 3 -> #
+                       prev  cur
+
+round 2: nxt = cur.next (=3)
+         cur.next = prev  ->   2 -> 1
+         prev = 2 ; cur = 3
+         state:  # <- 1 <- 2     3 -> #
+                            prev  cur
+
+round 3: nxt = cur.next (=#)
+         cur.next = prev  ->   3 -> 2
+         prev = 3 ; cur = #
+         state:  # <- 1 <- 2 <- 3     #
+                                 prev cur
+
+cur is # -> stop. return prev = 3.
+new list: 3 -> 2 -> 1 -> #
+```
+
+The key beat is **saving `nxt` before overwriting `cur.next`** — miss it and you
+lose the entire tail.
+
 ### Reverse in k-groups (a hard favourite)
 
 Reverse the list in chunks of `k` (LC 25). Reverse the first `k` nodes, then
 recursively/iteratively connect to the reversed rest. Time O(n), Space O(1)
 (iterative). This tests whether you really understand the 3-pointer reversal.
+
+```text
+# Reverse in groups of k                     Time O(n), Space O(1) iterative
+reverseKGroup(head, k):
+    # 1. check there are at least k nodes ahead
+    node = head; count = 0
+    while node and count < k: node = node.next; count += 1
+    if count < k: return head          # leftover tail (<k) stays as-is
+
+    # 2. reverse the first k nodes (standard 3-pointer, k times)
+    prev = reverseKGroup(node, k)      # 'node' is the head of the NEXT group
+    cur = head
+    for _ in range(k):
+        nxt = cur.next
+        cur.next = prev
+        prev = cur
+        cur = nxt
+    return prev                        # new head of this reversed group
+```
+
+- If the last chunk has **fewer than k** nodes, leave it unreversed (that is the
+  LC 25 rule; a variant reverses the leftover too).
+- **Swap Nodes in Pairs** (LC 24) is just this with `k = 2`.
 
 ### MCQs
 
@@ -238,6 +342,46 @@ move the same distance to reach the start → they meet there.
 
 Find the middle (fast/slow), reverse the second half, compare the two halves.
 O(n) time, O(1) space (LC 234).
+
+```text
+# Palindrome check                           Time O(n), Space O(1)
+# 1. find middle (slow) with fast/slow
+# 2. reverse the list from slow to the end -> secondHalf
+# 3. walk head and secondHalf together; if any pair differs -> not palindrome
+# (optionally re-reverse the second half to restore the list)
+```
+
+For **1 -> 2 -> 2 -> 1**: middle splits into `1->2` and reversed `1->2`; they
+match → palindrome. For **1 -> 2 -> 3**: front `1`, reversed back `3` → differ →
+not a palindrome.
+
+### Why slow and fast are guaranteed to meet (in a cycle)
+
+Once **both** pointers are inside the loop, look at the gap between them measured
+*around the loop*. Each step, slow moves +1 and fast moves +2, so the gap
+**shrinks by exactly 1** every step. A gap that decreases by 1 each step and can
+never "jump over" (because fast only gains 1 per step) must hit **0** — that is
+the meeting. This also proves they can *never* skip past each other, which is why
+the simple `slow == fast` test is enough.
+
+> **Even vs odd length (which middle?)** With `slow=fast=head` and the loop
+> `while fast and fast.next`, on **even** length `slow` lands on the **second** of
+> the two middles. If you want the **first** middle instead, start `fast` one
+> step ahead or loop while `fast.next and fast.next.next`.
+
+### Worked trace — detect a cycle in 1→2→3→4→(back to 2)
+
+```text
+list:  1 -> 2 -> 3 -> 4
+                 ^_________|     (4.next points back to 2)
+
+step | slow | fast
+-----+------+------
+ 0   |  1   |  1
+ 1   |  2   |  3
+ 2   |  3   |  2      (fast wrapped: 3->4->2)
+ 3   |  4   |  4      slow==fast  -> CYCLE detected
+```
 
 ### MCQs
 
@@ -359,6 +503,60 @@ put(key, value):
 
 ---
 
+## 4.8a Clone a Linked List with a Random Pointer (LC 138)
+
+### The problem
+
+Each node has a normal `next` **and** a `random` pointer that may point to *any*
+node in the list (or NULL). Return a **deep copy** — brand-new nodes wired the
+same way. The hard part: when you copy a node, its `random` may point to a node
+you have not copied yet.
+
+### Brute → Better → Optimal
+
+```text
+# BRUTE / BETTER: hashmap old -> new         Time O(n), Space O(n)
+pass 1: for each old node, create copy; map[old] = copy
+pass 2: for each old node:
+            map[old].next   = map[old.next]      # (map[NULL] = NULL)
+            map[old].random = map[old.random]
+return map[head]
+```
+
+```text
+# OPTIMAL: weave copies in-place            Time O(n), Space O(1) (extra)
+# step 1: after every original, insert its copy
+#   A -> A' -> B -> B' -> C -> C'
+for cur = head; cur; cur = cur.next.next:
+    copy = new Node(cur.val); copy.next = cur.next; cur.next = copy
+
+# step 2: wire the random pointers using the interleaving
+#   copy.random = original.random.next   (the copy sits right after it)
+for cur = head; cur; cur = cur.next.next:
+    if cur.random: cur.next.random = cur.random.next
+
+# step 3: un-weave into two separate lists (restore original + extract copy)
+```
+
+![Clone-with-random weaving: insert each copy right after its original so copy.random = original.random.next, then split the two lists apart.](images/170_clone_random.png)
+
+> **Why weaving works:** placing `A'` immediately after `A` means the copy of any
+> node `X` is always `X.next`. So `X.random.next` is exactly *the copy of what X
+> points to* — no hashmap needed.
+
+### MCQs
+
+1. Clone-with-random optimal extra space? → **O(1)** (weaving trick).
+2. In the woven list, the copy of node `X` sits where? → right **after** `X`
+   (`X.next`).
+3. Hashmap approach space? → **O(n)** (`old → new` map).
+
+### Problems
+
+- **Medium:** Copy List with Random Pointer (LC 138).
+
+---
+
 ## Module 4 — Concept Review (one page)
 
 - A **node** = data + pointer to next; reach via **head**; last `next` = NULL.
@@ -382,6 +580,10 @@ put(key, value):
 - Q: Merge two sorted lists? **A: dummy head, pick smaller, O(n+m).**
 - Q: LRU cache structures? **A: HashMap + doubly linked list (O(1)).**
 - Q: Why doubly linked for LRU? **A: O(1) middle removal.**
+- Q: Delete tail of a singly list with only head? **A: O(n).**
+- Q: Reverse in k-groups — leftover tail? **A: <k nodes stay unreversed (LC 25).**
+- Q: Clone list with random pointer in O(1) extra? **A: weave copies, then split.**
+- Q: Why do slow & fast meet in a cycle? **A: their gap shrinks by 1 each step → hits 0.**
 
 ## Module 4 — Pattern Recognition
 
@@ -390,6 +592,8 @@ put(key, value):
 - "Combine sorted lists" → **merge with a dummy head** (k lists → min-heap).
 - "O(1) get/put with eviction" → **HashMap + doubly linked list (LRU)**.
 - "Avoid head/empty special cases" → **dummy node**.
+- "Deep-copy a tangled list (random pointers)" → **weave copies then split** (or map).
+- "Reverse only every k nodes" → **k-group reversal (3-pointer, k times)**.
 
 ## Module 4 — Interview Questions (with follow-ups)
 

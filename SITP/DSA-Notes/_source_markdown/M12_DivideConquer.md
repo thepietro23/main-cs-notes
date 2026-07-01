@@ -63,6 +63,46 @@ Compare `f(n)` with `n^(log_b a)`. The **bigger one wins**:
 need the **recursion-tree** or **substitution (guess & verify)** methods (Module
 1 §1.5).
 
+- **Akra–Bazzi** is the heavy-artillery generalisation: it solves
+  `T(n) = Σ aᵢ·T(n/bᵢ) + f(n)` even with **unequal split ratios** (like the
+  median-of-medians recurrence), where the basic Master Theorem is silent. You
+  rarely need it in an exam — a recursion tree usually suffices — but know the
+  name as the "when nothing else fits" tool.
+
+### The recursion-tree method — worked example
+
+The Master Theorem gives the answer but not the *intuition*. The recursion tree
+shows **where the work lives**. Draw the tree, sum the work **per level**, then sum
+the levels. Take `T(n) = 2T(n/2) + n` (merge sort):
+
+```text
+level  subproblems   size each     work this level
+ 0        1             n            n
+ 1        2             n/2          2 * (n/2)   = n
+ 2        4             n/4          4 * (n/4)   = n
+ ...
+ k        2^k           n/2^k        2^k*(n/2^k) = n
+ ...
+ leaves   n             1            n * O(1)    = n
+
+number of levels = log2(n) + 1  (halving n until it hits 1)
+total = (work per level) * (number of levels) = n * (log2 n + 1) = Theta(n log n)
+```
+
+Every level does the **same** `n` work → the total is `n × (#levels)`. This is
+exactly the Master Theorem **Case 2** (`f = n = n^(log_b a)`), now seen as "work
+is spread evenly across all `log n` levels."
+
+- **Contrast — Case 1** (`T(n)=4T(n/2)+n`): work **grows** down the tree
+  (`n, 2n, 4n, …`), so the **leaves dominate** → `Θ(n^(log₂4)) = Θ(n²)`.
+- **Contrast — Case 3** (`T(n)=2T(n/2)+n²`): work **shrinks** down the tree
+  (`n², n²/2, n²/4, …`, a geometric series), so the **root dominates** →
+  `Θ(n²)`.
+
+> **Memory hook:** recursion tree = "work per level × number of levels." **Even →
+> Case 2 (× log n); top-heavy → Case 3 (root wins); bottom-heavy → Case 1 (leaves
+> win)."**
+
 > **When does D&C beat iteration?** When splitting saves more work than the
 > combine step costs, or the problem is naturally recursive (sorting, trees). For
 > simple linear scans, iteration wins (no recursion overhead).
@@ -73,6 +113,9 @@ need the **recursion-tree** or **substitution (guess & verify)** methods (Module
 2. `T(n)=2T(n/2)+n log n`? → **Θ(n log² n)** (extended; basic MT fails).
 3. Which recurrences need recursion-tree/substitution? → **uneven splits /
    subtract-and-conquer**.
+4. In a recursion tree, when do the **leaves** dominate the cost? → when work
+   **grows** down the tree (Case 1, e.g. `4T(n/2)+n`).
+5. Generalises Master Theorem to unequal split ratios? → **Akra–Bazzi**.
 
 ---
 
@@ -319,6 +362,27 @@ return lo
 > `mid = lo + (hi−lo+1)/2`; the plain floor causes an infinite loop when
 > `hi = lo+1`.
 
+### Worked trace — Koko Eating Bananas (LC 875)
+
+Piles `[3, 6, 7, 11]`, must finish in `H = 8` hours. Eating speed `k` bananas/hr;
+each pile takes `ceil(pile/k)` hours. Find the **smallest** `k` that finishes in
+time. `feasible(k)` = "total hours ≤ 8" is **monotonic**: faster eating never
+hurts (F…F T…T).
+
+Search space `k ∈ [1, max pile] = [1, 11]`. Run the **minimise** template:
+
+```text
+lo, hi = 1, 11
+mid=6 : hours = ceil(3/6)+ceil(6/6)+ceil(7/6)+ceil(11/6) = 1+1+2+2 = 6 <= 8  ok  -> hi=6
+mid=3 : hours = 1+2+3+4                                     = 10 > 8  too slow -> lo=4
+mid=5 : hours = 1+2+2+3                                     = 8  <= 8  ok       -> hi=5
+mid=4 : hours = 1+2+2+3                                     = 8  <= 8  ok       -> hi=4
+lo == hi == 4  -> answer k = 4
+```
+
+Check the boundary: `k=4` gives 8 hours (feasible), `k=3` gives 10 (infeasible) —
+so **4** is exactly the first TRUE. Cost = `O(n · log(max pile))`.
+
 - **Recognise it:** "minimise the maximum…", "maximise the minimum…", "smallest
   capacity/speed/size such that …".
 - **Classics:** Koko Eating Bananas (875), Capacity to Ship in D Days (1011),
@@ -332,6 +396,7 @@ return lo
 2. Maximise-variant midpoint? → **ceiling** `lo+(hi−lo+1)/2` (avoids infinite
    loop).
 3. Koko/ship search over? → the **answer space** (speed/capacity), not an array.
+4. Koko `[3,6,7,11]`, H=8 → min speed? → **4** (k=4 needs 8 hrs, k=3 needs 10).
 
 ---
 
@@ -427,6 +492,8 @@ extremum. **O(log n)** probes. (Continuous analogue: golden-section search.)
 - Q: lower vs upper bound? **A: `<` vs `<=` in the same half-open template.**
 - Q: Maximise BS-on-answer pitfall? **A: use ceiling mid (else infinite loop).**
 - Q: Fast exponentiation? **A: square-and-multiply, O(log n).**
+- Q: Recursion tree — who dominates? **A: even work → ×log n (Case 2); top-heavy →
+  root (Case 3); bottom-heavy → leaves (Case 1).**
 
 ## Module 12 — Pattern Recognition
 

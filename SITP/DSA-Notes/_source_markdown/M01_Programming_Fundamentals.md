@@ -103,6 +103,114 @@ most analysis). In reality, speed depends on caches (see §1.6).
 
 ---
 
+## 1.1a Number Systems & Base Conversion (bits in practice)
+
+### Why this matters
+
+We said data is stored as bits, and we wrote things like `0x01020304` and
+`0000 0101`. Those are just numbers written in different **bases**. GATE/ISRO ask
+base conversion directly, and hex/binary show up all over bit-manipulation
+(Module 11), colours, memory addresses, and network masks.
+
+### The three bases you must know
+
+| Base | Name        | Digits used            | Prefix  |
+|------|-------------|------------------------|---------|
+| 2    | binary      | 0,1                    | `0b`    |
+| 8    | octal       | 0–7                    | `0` / `0o` |
+| 10   | decimal     | 0–9                    | (none)  |
+| 16   | hexadecimal | 0–9, A–F (A=10 … F=15) | `0x`    |
+
+A number in base `b` means each digit is worth a **power of b**. Example in
+decimal: `345` = `3·10² + 4·10¹ + 5·10⁰`. Same idea in any base.
+
+### Binary → decimal (add up the powers of 2)
+
+Write the place values above the bits and add the ones that are `1`:
+
+```text
+bits :  1   0   1   1   0   1
+value: 32  16   8   4   2   1
+on?  :  ✓       ✓   ✓       ✓
+sum  : 32 + 8 + 4 + 1 = 45      so  101101(2) = 45(10)
+```
+
+### Decimal → binary (repeated division by 2, read remainders upward)
+
+```text
+45 / 2 = 22  r 1   ┐
+22 / 2 = 11  r 0   │  read the remainders
+11 / 2 =  5  r 1   │  from BOTTOM to TOP:
+ 5 / 2 =  2  r 1   │  1 0 1 1 0 1
+ 2 / 2 =  1  r 0   │
+ 1 / 2 =  0  r 1   ┘  => 101101(2)  ✓ (matches above)
+```
+
+> **Memory hook:** *divide down, read the remainders bottom-up.* The same trick
+> converts to any base — divide by 8 for octal, by 16 for hex.
+
+### Hex ↔ binary (the easy one: group 4 bits)
+
+Because `16 = 2⁴`, **one hex digit = exactly 4 bits**. So you convert in groups
+of four with no arithmetic:
+
+```text
+hex :   A      2      F
+bits: 1010   0010   1111        so  0xA2F = 1010 0010 1111 (2)
+```
+
+This is why programmers love hex: `0x01020304` is just four bytes
+`00000001 00000010 00000011 00000100` written compactly. (Octal groups **3**
+bits the same way.)
+
+### Iterative vs recursive conversion (a Module-1 tie-in)
+
+The same "divide, collect remainders" logic can be written either way:
+
+```text
+# ITERATIVE: build the string, reverse at the end
+to_binary(n):
+    if n == 0: return "0"
+    bits = ""
+    while n > 0:
+        bits = str(n % 2) + bits   # prepend the remainder
+        n = n / 2                  # integer division
+    return bits
+
+# RECURSIVE: recurse first, print on the way back up
+to_binary(n):
+    if n == 0: return ""
+    return to_binary(n / 2) + str(n % 2)   # tail work AFTER the call
+```
+
+Notice the recursion prints digits in the **correct order for free**: the
+deepest call (most significant bit) returns first, so the concatenation comes out
+high-bit → low-bit. This is a neat example of *"let the call stack do the
+reversing"* — the same pattern used when printing a linked list in reverse
+(Module 4).
+
+### Complexity
+
+Converting a number `n` takes **O(log n)** steps (one per digit produced), since
+each division by the base removes one digit. Both the iterative and recursive
+forms are O(log n) time; the recursive form also uses **O(log n)** stack.
+
+### Common mistakes
+
+- Reading division remainders **top-to-bottom** (they must be read bottom-to-top).
+- Forgetting hex letters are A=10 … F=15 (not "A=11").
+- Mixing up **bit count** and **value**: `0xFF` is 8 bits but equals 255.
+
+### MCQs
+
+1. `1101(2)` in decimal? → `8+4+1 =` **13**.
+2. `255(10)` in hex? → **0xFF**.
+3. One hex digit equals how many bits? → **4**.
+4. To convert decimal→binary you repeatedly divide by 2 and read remainders? →
+   **bottom to top**.
+
+---
+
 ## 1.2 Stack vs Heap (the single most important memory concept)
 
 ### Definition
@@ -281,6 +389,27 @@ int fact(int n) {
 `fact(4)` is **linear** recursion → the recursion tree is a single chain of
 depth `n`. First the calls go 4→3→2→1 (push), then the results come back
 `1 → 2 → 6 → 24` (pop).
+
+#### Frame-by-frame stack trace (read this once, slowly)
+
+Follow exactly what the call stack holds. Each call **pushes** a frame; each
+`return` **pops** one and hands its value to the caller:
+
+```text
+STEP  ACTION                       STACK (top = most recent)      RETURNS
+ 1    call fact(4)                 [fact(4)]                       —
+ 2    4>1 → need fact(3)           [fact(4), fact(3)]              —
+ 3    3>1 → need fact(2)           [fact(4), fact(3), fact(2)]     —
+ 4    2>1 → need fact(1)           [fact(4),fact(3),fact(2),f(1)]  —
+ 5    n<=1 → base case             pop fact(1)                     1
+ 6    fact(2) = 2 * 1              pop fact(2)                      2
+ 7    fact(3) = 3 * 2              pop fact(3)                      6
+ 8    fact(4) = 4 * 6              pop fact(4)                     24
+```
+
+> **Memory hook:** *going down we only ask questions (push); coming up we finally
+> answer them (pop).* The maximum stack height here is **4 = n** — that is the
+> O(n) space of linear recursion.
 
 ### Branching recursion — naive Fibonacci
 
@@ -616,6 +745,10 @@ for (j...) for (i...) sum += a[i][j];
 - Q: `2T(n/2)+n`? **A: Θ(n log n).**
 - Q: Growth order? **A: 1 < log n < √n < n < n log n < n² < 2ⁿ < n!.**
 - Q: Array vs list speed at the same O(n)? **A: array — cache locality.**
+- Q: Decimal→binary method? **A: divide by 2, read remainders bottom-up.**
+- Q: One hex digit = how many bits? **A: 4 (since 16 = 2⁴).**
+- Q: `0xFF` in decimal? **A: 255.**
+- Q: Cost of converting n to another base? **A: O(log n) (one step per digit).**
 
 ## Module 1 — Pattern Recognition
 
@@ -624,6 +757,7 @@ for (j...) for (i...) sum += a[i][j];
 - "Same subproblem computed again" → memoise → DP.
 - "Nested loops over n" → suspect O(n²); look for hashing/two-pointer to cut it.
 - "Need O(1) lookup" → trade space for time with a hashset/hashmap.
+- "Convert between bases" → divide by the base, read remainders bottom-up; hex↔binary in 4-bit groups.
 
 ## Module 1 — Interview Questions (with follow-ups)
 
@@ -639,6 +773,8 @@ for (j...) for (i...) sum += a[i][j];
 - **Very common:** solving recurrences, identifying the Θ of code with loops,
   two's-complement ranges, the contents of an activation record, recursion depth,
   and comparing growth rates.
+- **Number systems (GATE/ISRO staple):** binary/octal/hex ↔ decimal conversion,
+  hex↔binary grouping (4 bits per hex digit), and how base conversion is O(log n).
 - **SEBI/RBI IT:** conceptual MCQs on time complexity, stack vs heap, recursion.
 
 ---

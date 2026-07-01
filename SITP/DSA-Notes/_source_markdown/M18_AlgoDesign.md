@@ -87,12 +87,57 @@ Three methods to prove it:
 > systems (p99 spikes during a rehash!), use **de-amortized / incremental-resize**
 > variants that spread the rebuild work over many operations.
 
+### The three methods, each worked on the dynamic array
+
+Setup: `n` appends into an array that **doubles** when full. A normal append costs
+1 (write one slot); a resize that copies `k` elements costs `k`. We prove
+**O(1) amortized** three different ways — same answer, three lenses.
+
+**(1) Aggregate method** — total cost ÷ n. Over `n` appends, resizes happen at
+sizes `1,2,4,…` up to `n`, copying `1+2+4+…+ ≤ n < 2n` elements total; plus `n`
+cheap writes.
+
+```text
+total = n (writes) + (1+2+4+...+n) (copies) < n + 2n = 3n
+amortized = total / n = 3n / n = O(1)
+```
+
+**(2) Accounting method** — charge each append **\$3** (a fixed "amortized
+price") and store the surplus as credit.
+
+```text
+each append pays $3:  $1 for its own write,
+                      $1 saved on itself (to pay to copy it at the next resize),
+                      $1 saved on an older element (to pay to copy it again).
+When a resize copies k elements, the credit stored on them (>= $1 each) pays for
+it -> the bank never goes negative -> $3 per op is an upper bound = O(1).
+```
+
+**(3) Potential method** — define `Φ = 2·(num_elements) − (capacity)`. Amortized
+cost = actual cost + ΔΦ.
+
+```text
+Cheap append (no resize): actual=1, size grows by 1 -> ΔΦ = +2, amortized = 3.
+Resize append (size goes n -> then capacity doubles n -> 2n):
+   actual = n (copy) + 1 (write).
+   Before: Φ = 2n − n = n.   After: Φ = 2(n+1) − 2n = 2.   ΔΦ = 2 − n = −(n−2).
+   amortized = (n+1) + (2 − n) = 3.
+Every case is 3 -> O(1) amortized.  (Φ = "prepaid work" stored in the structure.)
+```
+
+- All three agree: **O(1) amortized** with a small constant (~3). Aggregate is the
+  quickest to state; accounting/potential also bound **any prefix** of the sequence
+  (they never let the "bank"/Φ go negative), which is why they are more powerful.
+
 ### MCQs
 
 1. Amortized vs average-case? → amortized is a **guarantee over a sequence**;
    average-case is **probabilistic**.
 2. Three methods? → **aggregate, accounting, potential**.
 3. Dynamic array append amortized? → **O(1)** (total 2n).
+4. Accounting-method charge per append (doubling array)? → **\$3** (write + own
+   future copy + one older element's copy).
+5. Potential function for the doubling array? → `Φ = 2·size − capacity`.
 
 ---
 
@@ -116,6 +161,24 @@ Use randomness to get simplicity or good *expected* performance.
 - **When to randomize:** simpler code, breaking symmetry / adversarial inputs, or
   when an expected/high-probability bound suffices and worst-case is unaffordable.
 
+**Las Vegas vs Monte Carlo — side by side.**
+
+| | **Las Vegas** | **Monte Carlo** |
+|---|---|---|
+| Correctness | **always correct** | correct **with high probability** |
+| Running time | **random** (expected bound) | **fixed / bounded** |
+| "What's random?" | how long it takes | whether the answer is right |
+| Examples | randomized quicksort, randomized quickselect | Miller–Rabin, Rabin–Karp, Freivalds' check |
+| Repeat to improve | already correct | rerun `k` times → error `≤ pᵏ` |
+
+- **Turn one into the other:** a Las Vegas algorithm run with a **time budget**
+  (return best-so-far when the clock runs out) becomes Monte Carlo (fast, maybe
+  wrong). Conversely a Monte Carlo algorithm whose answer you can **verify** cheaply
+  becomes Las Vegas (rerun until the check passes).
+
+> **Memory hook:** *Las **V**egas = always **V**alid (time varies); **M**onte
+> Carlo = **M**aybe wrong (time fixed).*
+
 ### MCQs
 
 1. Las Vegas vs Monte Carlo? → always-correct/random-time vs fixed-time/maybe-wrong.
@@ -132,6 +195,31 @@ always within a factor ρ of optimal.
 
 - **Vertex Cover — 2-approximation:** repeatedly pick **both endpoints** of any
   uncovered edge → at most 2× the optimal cover. Simple and provable.
+
+  **The 2-approx, worked and proved.**
+
+  ```text
+  APPROX-VERTEX-COVER(G):
+    C = {}
+    while some edge (u,v) is uncovered:
+        add BOTH u and v to C
+        delete all edges touching u or v
+    return C
+  ```
+
+  *Why ≤ 2·OPT.* The edges `(u,v)` we pick in the loop share **no vertex** (once
+  we take `u,v` we delete all their edges), so they form a **matching** `M`. Every
+  vertex cover — including the optimal one — must contain **at least one endpoint
+  of each matched edge**, so `OPT ≥ |M|`. Our cover uses **both** endpoints of each
+  matched edge, so `|C| = 2|M| ≤ 2·OPT`. ∎
+
+  *Worked (path a–b–c–d).* Suppose we pick edge `(a,b)` → `C={a,b}`, delete its
+  edges; the remaining uncovered edge `(c,d)` → add `C={a,b,c,d}`. So `|C|=4`,
+  while `OPT={b,c}` has size 2 → ratio exactly **2** here.
+
+  - **Pitfall:** the "pick the highest-degree vertex" greedy is *not* 2-approx —
+    it can be as bad as `Θ(log n)·OPT`. The matching-based both-endpoints rule is
+    the one with the clean 2 guarantee.
 - **TSP (metric) — 2-approximation** via MST (1.5× with Christofides).
 - **Set Cover — ln n approximation** (greedy: always take the set covering the most
   uncovered elements).
@@ -180,6 +268,40 @@ always within a factor ρ of optimal.
 NP-complete problem to X** in polynomial time ("if I could solve X fast, I could
 solve SAT fast").
 
+### The classic reduction chain: SAT → 3-SAT → Clique
+
+This is the textbook chain (GATE loves "which reduces to which"). Direction matters:
+`A → B` means "an instance of A is transformed into an instance of B", proving B is
+at least as hard as A.
+
+```text
+Cook–Levin        polynomial            polynomial
+  SAT  --------->  3-SAT  ----------->  CLIQUE  ----------> Vertex Cover, Ind. Set...
+(1st NPC)        (each clause          (graph gadget)
+                  <= 3 literals)
+```
+
+- **SAT is NP-complete** by the **Cook–Levin theorem** (the first, proved from
+  scratch by simulating any poly-time verifier as a formula).
+- **SAT → 3-SAT:** rewrite every long clause into several 3-literal clauses using
+  fresh variables (satisfiability is preserved). So 3-SAT is NP-complete too.
+- **3-SAT → CLIQUE (the gadget, worth knowing).** Given a 3-SAT formula with `k`
+  clauses:
+
+  ```text
+  - make one vertex per literal in each clause (3 vertices per clause -> 3k total)
+  - connect two vertices IFF they are in DIFFERENT clauses AND are not
+    contradictory (x and ¬x are never joined)
+  - the formula is satisfiable  <=>  the graph has a clique of size k
+    (a k-clique = one consistent true literal chosen from each clause)
+  ```
+
+  So a fast CLIQUE solver would give a fast 3-SAT solver → CLIQUE is NP-hard;
+  since a clique is easy to *verify*, CLIQUE is **NP-complete**.
+- From CLIQUE the chain continues to **Independent Set** and **Vertex Cover** by
+  simple complement arguments (a clique in `G` is an independent set in `Ḡ`; the
+  complement of a vertex cover is an independent set).
+
 > **Memory hook:** **P** = easy to *solve*; **NP** = easy to *check*;
 > **NP-complete** = the hardest "checkable" problems; **NP-hard** = at least that
 > hard (maybe not even checkable).
@@ -208,6 +330,9 @@ ever." **co-NP** = problems whose *no*-answers are easily verified (e.g.
 2. First proven NP-complete problem? → **SAT** (Cook–Levin theorem).
 3. To prove X is NP-hard? → **reduce** a known NP-complete problem to X.
 4. NP-complete = ? → in NP **and** NP-hard.
+5. Direction of a reduction to prove CLIQUE hard? → **3-SAT → CLIQUE** (known-hard
+   maps *into* the new problem).
+6. In the 3-SAT→CLIQUE gadget, clique size sought? → **k** = number of clauses.
 
 ---
 
@@ -225,10 +350,44 @@ limitation is **missing future info**, not computational hardness.)
 
 - **Ski-rental** ("rent for \$1/day or buy for \$B?"): renting until day B then
   buying is **2-competitive** (e/(e−1) ≈ 1.58 randomized).
+
+  **Worked — why "rent B days, then buy" is exactly 2-competitive.** You do not
+  know how many days `d` you will actually ski. Strategy: rent each day; the moment
+  your total rent would reach `\$B` (i.e. on day `B`), buy.
+
+  ```text
+  Case d < B   : you only rented -> you paid $d.  OPT also just rents -> $d.
+                 ratio = 1.
+  Case d >= B  : you paid $B (rent for B-1 days... then buy for $B) ~ up to $2B−1.
+                 The clairvoyant OPT would have bought on day 1 -> paid $B.
+                 ratio = (2B−1)/B < 2.
+  ```
+
+  - Worst case is skiing **exactly around day B**: you pay ~`2B`, OPT pays `B` →
+    **competitive ratio 2**. No deterministic strategy beats 2; **randomizing** the
+    buy-day lowers the *expected* ratio to `e/(e−1) ≈ 1.58`.
 - **Paging / cache eviction:** any deterministic policy is **k-competitive** (k =
   cache size); **LRU** achieves it; the offline optimum **OPT** evicts the page
   used farthest in the future (Bélády) — but that needs the future.
 - **List update:** **move-to-front** is 2-competitive.
+
+**Worked — LRU vs Bélády (OPT) on one trace.** Cache size `k = 2`, request
+sequence `A B C A B`.
+
+```text
+req  LRU cache (LRU→MRU)   LRU event      OPT cache        OPT event
+ A   [A]                   miss           [A]              miss
+ B   [A,B]                 miss           [A,B]            miss
+ C   [B,C]  (evict A)      miss           [A,C] (evict B)  miss  # OPT drops B: reused later than A
+ A   [C,A]  (evict B)      miss           [A,C]            HIT   # OPT kept A
+ B   [A,B]  (evict C)      miss           [A,B] (evict C)  miss
+     LRU: 5 misses                        OPT: 4 misses
+```
+
+- LRU evicts by *past* recency and gets burned; **Bélády/OPT** evicts the page
+  whose *next* use is farthest away (it dropped B, not A, at step 3, keeping the
+  soon-reused A). OPT is **unbeatable but unrealizable** online (needs the future).
+  LRU's guarantee is `misses_LRU ≤ k·misses_OPT` — here well within that bound.
 
 > **Interview link:** "your cache is LRU — how good is that vs a clairvoyant
 > optimum?" → competitive ratio; LRU is k-competitive, OPT = Bélády.
@@ -239,6 +398,8 @@ limitation is **missing future info**, not computational hardness.)
    known**.
 2. Quality metric for online algorithms? → the **competitive ratio**.
 3. Optimal *offline* page replacement? → **Bélády** (evict farthest-future use).
+4. Ski-rental deterministic competitive ratio? → **2** (`e/(e−1)≈1.58` randomized).
+5. LRU competitive ratio for cache size k? → **k**-competitive.
 
 ## Module 18 — Concept Review (one page)
 
@@ -263,6 +424,11 @@ limitation is **missing future info**, not computational hardness.)
 - Q: Vertex cover approx ratio? **A: 2.**
 - Q: First NP-complete problem? **A: SAT (Cook–Levin).**
 - Q: Prove NP-hardness? **A: reduce a known NP-complete problem to it.**
+- Q: Classic reduction chain? **A: SAT → 3-SAT → CLIQUE (→ VC / Ind-Set).**
+- Q: Potential function for the doubling array? **A: Φ = 2·size − capacity.**
+- Q: Ski-rental competitive ratio? **A: 2 deterministic, e/(e−1)≈1.58 randomized.**
+- Q: Optimal offline paging? **A: Bélády — evict the farthest-future page.**
+- Q: LV vs MC one-liner? **A: LV always valid/time varies; MC maybe wrong/time fixed.**
 
 ## Module 18 — Pattern Recognition
 
@@ -271,6 +437,10 @@ limitation is **missing future info**, not computational hardness.)
 - "Defeat worst-case input" → **randomization** (random pivot).
 - "NP-hard, need *some* answer fast" → **approximation / heuristic**.
 - "Is this problem even tractable?" → place it in **P / NP / NP-complete**.
+- "Decisions made as input streams in, no future" → **online algorithm /
+  competitive ratio** (ski-rental, LRU/Bélády).
+- "Prove this specific new problem is NP-hard" → **pick the right known-NPC source
+  and reduce from it** (SAT/3-SAT/Clique/Subset-Sum).
 
 ## Module 18 — Interview Questions (with follow-ups)
 

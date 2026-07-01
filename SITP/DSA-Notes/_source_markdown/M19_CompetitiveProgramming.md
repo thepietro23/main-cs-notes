@@ -70,6 +70,90 @@ complexity (assume ~10⁸ simple operations/second, 1–2 s limit):
 2. Default CP language & why? → **C++** (speed + STL).
 3. When to switch to `long long`? → products/sums beyond ~2×10⁹.
 
+### 19.2a Fast I/O templates (paste-ready)
+
+Keep these at the top of every solution. They routinely turn a TLE into an AC on
+input-heavy problems.
+
+**C++** — the standard header:
+
+```text
+#include <bits/stdc++.h>
+using namespace std;
+
+int main() {
+    ios_base::sync_with_stdio(false);   // unhook C++ streams from C stdio
+    cin.tie(NULL);                      // don't flush cout before every cin
+    // ... read with cin, print with cout, use '\n' NOT endl (endl flushes) ...
+    return 0;
+}
+```
+
+**Java** — never use `Scanner` on big input:
+
+```text
+BufferedReader br = new BufferedReader(new InputStreamReader(System.in));
+StringBuilder sb = new StringBuilder();          // batch output
+int n = Integer.parseInt(br.readLine().trim());
+StringTokenizer st = new StringTokenizer(br.readLine());
+// ... build answer in sb ...
+System.out.print(sb);                            // one big write at the end
+```
+
+**Python** — read in one shot, avoid `input()` in loops:
+
+```text
+import sys
+input = sys.stdin.readline          # faster line reads
+data = sys.stdin.buffer.read().split()   # or: read EVERYTHING at once
+# ... process the token list `data` ...
+sys.stdout.write("\n".join(map(str, answers)) + "\n")   # one big write
+```
+
+- **Why it matters:** `endl` flushes the buffer every call; `Scanner` parses with
+  regex; `input()` in a tight loop re-acquires locks. On 10⁶ lines these dominate
+  the runtime.
+- On Codeforces, if Python is too slow even with fast I/O, **switch to PyPy**.
+
+> **Memory hook:** *read in bulk, print in bulk, never flush in a loop.*
+
+### MCQs
+
+1. In C++, why prefer `'\n'` over `endl`? → **`endl` flushes every time**.
+2. Java fast input class? → **`BufferedReader`** (not `Scanner`).
+3. Fast Python input? → **`sys.stdin.readline` / read all at once**.
+
+### 19.2b STL / standard-library must-knows
+
+Most CP problems are "known algorithm + the right container". Know these cold:
+
+| Need | C++ STL | Cost |
+|---|---|---|
+| dynamic array | `vector` | push_back amortised O(1) |
+| sorted unique set / ordered map | `set` / `map` | **O(log n)** per op |
+| hash set / map (unordered) | `unordered_set` / `unordered_map` | avg **O(1)** |
+| priority queue (heap) | `priority_queue` | push/pop **O(log n)** |
+| double-ended queue | `deque` | push/pop both ends O(1) |
+| sort / stable_sort | `sort(v.begin(), v.end())` | **O(n log n)** |
+| binary search on sorted | `lower_bound` / `upper_bound` | **O(log n)** |
+| next permutation | `next_permutation` | O(n) per step |
+| gcd / built-in popcount | `__gcd`, `__builtin_popcount` | O(log), O(1) |
+
+- **`lower_bound` vs `upper_bound`:** `lower_bound(x)` = first element **≥ x**;
+  `upper_bound(x)` = first element **> x**. Their difference counts occurrences of
+  `x` in a sorted array.
+- **Watch out:** `unordered_map` can be hacked to O(n) per op on Codeforces (anti-
+  hash tests) — use a custom hash or fall back to `map` if you get a surprise TLE.
+- Java equivalents: `ArrayList`, `TreeSet`/`TreeMap`, `HashMap`, `PriorityQueue`,
+  `ArrayDeque`, `Collections.sort`, `Arrays.binarySearch`.
+
+### MCQs
+
+1. `lower_bound(x)` returns? → **first element ≥ x**.
+2. `upper_bound(x) − lower_bound(x)` gives? → **count of x** in a sorted range.
+3. Sudden `unordered_map` TLE on Codeforces? → **anti-hash test; use custom
+   hash / `map`**.
+
 ---
 
 ## 19.3 Contest Workflow & Time Management
@@ -95,6 +179,50 @@ complexity (assume ~10⁸ simple operations/second, 1–2 s limit):
 2. Stuck for ~20 min? → **move on**, return later.
 3. Why test locally first? → avoid **wrong-submission penalties**.
 
+### 19.3a How to debug inside a contest (fast)
+
+The verdict tells you *what kind* of bug it is — read it first:
+
+| Verdict | Likely cause | First thing to check |
+|---|---|---|
+| **WA** (wrong answer) | logic / edge case | re-read statement; test n=0/1, all-equal, max |
+| **TLE** (time limit) | wrong complexity or slow I/O | recheck §19.1 target; fast I/O; `endl` |
+| **RE** (runtime error) | out-of-bounds / div-by-zero / stack | array sizes, `n+1`, deep recursion |
+| **MLE** (memory) | too-big arrays / recursion | reduce dimensions; iterative |
+
+A tight debugging loop:
+
+1. **Re-read the statement** — most WAs are a misread constraint or output format
+   (spaces, newlines, "print YES/NO" case), not a code bug.
+2. **Test the given samples locally** — if a sample fails, the bug is easy to find.
+3. **Stress test** when a WA has no obvious cause: write a tiny **brute force**,
+   generate random small inputs, and diff the two outputs until they disagree —
+   that first mismatch is a minimal failing case.
+
+```text
+# stress-test loop (shell)
+while true; do
+    ./gen > in.txt              # random small input
+    ./brute < in.txt > b.txt    # obviously-correct slow solution
+    ./fast  < in.txt > f.txt    # your suspect solution
+    diff b.txt f.txt || { echo "MISMATCH:"; cat in.txt; break; }
+done
+```
+
+4. **Add asserts / print intermediate state** on the failing case, not blindly.
+5. **Binary-search the bug:** comment out halves of the logic to localise it.
+
+> **Memory hook:** the verdict names the *category*; samples + a stress test
+> against a brute force find the *exact* input that breaks you.
+
+### MCQs
+
+1. WA with no obvious cause? → **stress test vs a brute force** to find a minimal
+   case.
+2. RE most often means? → **out-of-bounds / bad array size / deep recursion**.
+3. First response to any wrong verdict? → **re-read the statement / output
+   format**.
+
 ---
 
 ## 19.4 Common Pitfalls (lose-the-problem bugs)
@@ -115,6 +243,55 @@ complexity (assume ~10⁸ simple operations/second, 1–2 s limit):
 1. Multi-testcase silent bug? → **not resetting** global state between cases.
 2. Deep DFS risk? → **stack overflow** (go iterative / raise limit).
 3. Equality on floats? → avoid; use **epsilon** or integers.
+
+### 19.4a Pre-submit checklist (run this every time)
+
+Before you hit submit, sweep this list — it catches the bugs above *before* the
+penalty:
+
+```text
+OVERFLOW
+  [ ] any product/sum > 2e9 ?  -> long long (C++) / long (Java)
+  [ ] a*b in a mod problem ?   -> cast to long long BEFORE multiplying
+  [ ] mid = (l+r)/2 overflow ? -> mid = l + (r-l)/2
+
+OFF-BY-ONE / INDEXING
+  [ ] 0-indexed vs 1-indexed consistent everywhere?
+  [ ] loop bounds:  < n  vs  <= n ?  arrays sized n or n+1 ?
+  [ ] binary search:  is the search space [l, r] or [l, r) ?  which end moves?
+  [ ] substring/prefix ranges inclusive or exclusive?
+
+EDGE CASES
+  [ ] n = 0 ?  n = 1 ?  empty input/line ?
+  [ ] all elements equal / all zero / all negative ?
+  [ ] max bound (e.g. n = 1e5, a_i = 1e9) — does it still fit / finish in time?
+  [ ] single query / single element range ?
+
+STATE (multi-testcase)
+  [ ] cleared every global array / map / counter between test cases?
+  [ ] reset `answer`, visited[], and any accumulator?
+
+OUTPUT FORMAT
+  [ ] exact spacing / newlines ?  "YES"/"Yes" case as the statement says ?
+  [ ] printed all t answers (not just the last) ?
+```
+
+- **The classic overflow trap:** `int a, b;  long long p = a * b;` still overflows
+  — the multiply happens in `int` *first*. Fix: `(long long)a * b`.
+- **The classic binary-search off-by-one:** decide up front whether your interval
+  is `[l, r]` (both inclusive) or `[l, r)` and keep the update (`l = mid+1` vs
+  `r = mid`) consistent with that choice (Module 12).
+
+> **Memory hook:** *overflow, off-by-one, edges, reset, format* — five checks, ten
+> seconds, saves a penalty.
+
+### MCQs
+
+1. `int a,b; long long p = a*b;` bug? → **multiply is done in `int` first
+   (overflow)**; cast first.
+2. Overflow-safe midpoint? → **`mid = l + (r-l)/2`**.
+3. Cheapest way to avoid a WA on the last subtask? → **run the pre-submit
+   checklist (edges + reset + format)**.
 
 ---
 
@@ -139,6 +316,21 @@ complexity (assume ~10⁸ simple operations/second, 1–2 s limit):
 - Practice **by topic** (ladders) and **by rating**; track patterns you keep
   missing.
 - Maintain your **template library** and a list of "tricks I forgot".
+
+**Upsolving done right** (the highest-ROI habit in CP):
+
+1. Right after the contest, **retry the first problem you couldn't solve** on your
+   own — no editorial yet. A fresh, no-clock attempt teaches the most.
+2. Only after you are truly stuck, read the editorial **up to the key idea**, then
+   close it and finish the implementation yourself.
+3. **Implement and get it accepted** — reading the solution is not learning; typing
+   it and passing tests is.
+4. Write one line in your notes: *what signal should have told me the technique?*
+   (This feeds your Pattern Recognition instincts.)
+5. Revisit the problem **a week later** from scratch to confirm it stuck.
+
+> **Memory hook:** the problems you *failed* are your syllabus. Solve them without
+> the editorial, then log the missed signal.
 
 ### MCQs
 
@@ -169,6 +361,11 @@ complexity (assume ~10⁸ simple operations/second, 1–2 s limit):
 - Q: Which problem first in a contest? **A: easiest (most #solves).**
 - Q: Multi-testcase bug? **A: forgot to reset state.**
 - Q: Best post-contest practice? **A: upsolve.**
+- Q: `int a,b; long long p=a*b;` fix? **A: cast `(long long)a*b` before multiply.**
+- Q: Overflow-safe midpoint? **A: `l + (r-l)/2`.**
+- Q: `lower_bound(x)` returns? **A: first element ≥ x.**
+- Q: WA with no clue? **A: stress test vs a brute force.**
+- Q: Fast Java input? **A: BufferedReader + StringBuilder (not Scanner).**
 
 ## Module 19 — Pattern Recognition (map constraints to M1–M18)
 

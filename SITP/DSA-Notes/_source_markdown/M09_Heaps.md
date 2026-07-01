@@ -23,6 +23,41 @@ heaps — theory + CP).
 
 ---
 
+## 9.0 Heap as an Array (indexing — the GATE trap)
+
+A binary heap is a **complete tree**, so it needs **no pointers** — it lives in a
+plain array, and the parent/child links are pure arithmetic. This array↔tree
+duality is the single most-tested heap fact in GATE.
+
+![A binary heap is a complete tree stored in an array; parent/child links are just index arithmetic.](images/146_heap_array_indexing.png)
+
+### The two conventions (mix them up and every answer is wrong)
+
+| | Parent of `i` | Left child | Right child |
+|---|---|---|---|
+| **0-indexed** (C/C++/Java arrays) | `(i-1)/2` | `2i+1` | `2i+2` |
+| **1-indexed** (GATE/textbook, CLRS) | `i/2` | `2i` | `2i+1` |
+
+> **Memory hook:** 0-indexed → children are the **odd/even neighbours** `2i+1,
+> 2i+2`. 1-indexed → children **double** the index `2i, 2i+1`. Always check which
+> convention the question uses **before** computing.
+
+### Worked example (0-indexed array above)
+
+- Element `65` is at index **5** → parent `= (5-1)/2 = 2` → value `70`. ✓
+- Element `80` at index **1** → children at `3, 4` → values `50, 60`. ✓
+- **Last internal (non-leaf) node** of an `n`-element heap is at index
+  `n/2 - 1` (0-indexed). For `n=7` that is index `2` — so `build_heap` sifts down
+  starting from index 2, then 1, then 0. Leaves (indices 3..6) need no work.
+
+### MCQs
+
+1. 0-indexed left child of node `i`? → **2i+1**.
+2. 1-indexed parent of node `i`? → **i/2** (floor).
+3. Index of the last non-leaf node (0-indexed, size n)? → **n/2 − 1**.
+
+---
+
 ## 9.1 Build-Heap in O(n) (the proof everyone gets wrong)
 
 ### The claim
@@ -49,6 +84,37 @@ converges to a **constant (≈1)**, so the total is **O(n)**. ∎
 > nodes (leaves) are **many**. The cheap ones dominate the count, so the average
 > is constant.
 
+### The algorithm (bottom-up, in place)
+
+```text
+# build_max_heap(a)                          Time O(n), Space O(1)
+for i = n/2 - 1 downto 0:        # every internal node, bottom → top
+    sift_down(a, i, n)
+
+sift_down(a, i, n):              # push a[i] down until heap-order holds
+    while true:
+        l, r = 2i+1, 2i+2
+        big = i
+        if l < n and a[l] > a[big]: big = l
+        if r < n and a[r] > a[big]: big = r
+        if big == i: break
+        swap(a[i], a[big]); i = big
+```
+
+### Worked trace (build a max-heap from `[3, 9, 2, 1, 4, 5]`)
+
+```text
+start:        [3, 9, 2, 1, 4, 5]     n=6, last internal = n/2-1 = 2
+i=2 (val 2):  children {5} > 2  -> swap  [3, 9, 5, 1, 4, 2]
+i=1 (val 9):  children {1,4}    -> stays [3, 9, 5, 1, 4, 2]
+i=0 (val 3):  children {9,5}, 9 biggest -> swap [9, 3, 5, 1, 4, 2]
+              now i=1 (val 3): children {1,4}, 4 bigger -> swap
+              result -> [9, 4, 5, 1, 3, 2]   ✔ max-heap
+```
+
+> **GATE numbers:** build-heap does **at most `2n` swaps / comparisons** → the
+> tight `O(n)`. Insert-based build can do `Θ(n log n)` in the worst case.
+
 ### MCQs
 
 1. Build-heap time bottom-up? → **O(n)**.
@@ -74,6 +140,23 @@ for end = n-1 downto 1:
     swap(a[0], a[end])             # largest goes to its final spot
     sift_down(a, 0, end)           # restore heap on a[0..end-1]
 ```
+
+### Worked trace (sort `[9, 4, 5, 1, 3, 2]`, already a max-heap)
+
+```text
+heap:  [9, 4, 5, 1, 3, 2]
+pass1: swap 9<->2, shrink, sift  -> [5, 4, 2, 1, 3 | 9]
+pass2: swap 5<->3, shrink, sift  -> [4, 3, 2, 1 | 5, 9]
+pass3: swap 4<->1, shrink, sift  -> [3, 1, 2 | 4, 5, 9]
+pass4: swap 3<->2, shrink, sift  -> [2, 1 | 3, 4, 5, 9]
+pass5: swap 2<->1                 -> [1 | 2, 3, 4, 5, 9]   ✔ sorted
+```
+
+The bar `|` marks the already-sorted tail growing from the right. Each pass fixes
+one element, so `n-1` passes × `O(log n)` sift = **O(n log n)**.
+
+> **GATE numbers:** heapsort uses about **`2n·log₂n` comparisons** in the worst
+> case — asymptotically like merge sort, but **in place** (O(1) extra).
 
 ### Heapsort vs other sorts (interview comparison)
 

@@ -48,6 +48,64 @@ Follow this **every single time** (never jump straight to code):
 2. Before optimising, state? → the **brute force + its complexity**.
 3. Biggest non-coding scored signal? → **communication / think-aloud**.
 
+### 20.1a The Clarify → Brute → Optimize → Code → Test loop, expanded
+
+Each step has a purpose and something the interviewer is *scoring*. Here is what to
+actually say and do at each one:
+
+| Step | What you do (out loud) | What it scores |
+|---|---|---|
+| **1. Clarify** | Restate the problem in your words. Ask: input size/range? types? duplicates allowed? empty/negative/overflow? sorted? in-place needed? what to return on no answer? | you don't code the wrong problem; you spot planted ambiguity |
+| **2. Examples** | Walk one small input by hand; make one **edge** example too (empty, size 1). | shared understanding, catches misreads early |
+| **3. Brute force** | State the obvious solution and **its complexity**, e.g. "check all pairs, O(n²) time O(1) space." | a baseline; shows you can always produce *something* |
+| **4. Optimize** | Name the bottleneck ("the inner loop re-scans"), name the **pattern** ("this is a two-sum → hash map"), argue the new complexity *before* coding. | the core problem-solving signal |
+| **5. Code** | Clean names, small helpers, narrate as you type. Handle the edge cases you listed in step 2. | readable, correct, maintainable code |
+| **6. Test** | Dry-run your code line by line on the small example, then the edge cases. Fix calmly. | edge-case discipline, self-review |
+
+**Communicating the complexity of *your* solution (do this explicitly):**
+
+- State **both time and space**, in Big-O of the input: "**O(n log n)** time from
+  the sort, **O(n)** space for the hash map."
+- Tie each term to a line of code: "the sort is n log n; the single pass is n; sort
+  dominates → **O(n log n)**."
+- Discuss the **trade-off** you chose: "I used O(n) extra space to get O(n) time;
+  a pure in-place version would be O(n²)."
+- If the interviewer asks "can you do better?", first say the **theoretical lower
+  bound** if you know it ("we must read all n inputs, so at least O(n)"), then
+  whether your solution already meets it.
+
+> **Memory hook:** never say "it's fast." Say **the Big-O, why, and the trade-off**
+> — that sentence is a scored signal.
+
+### 20.1b How to handle being stuck (interviewers expect this)
+
+Getting stuck is normal; the interviewer scores **how you get unstuck**, not
+whether you were flawless. A recovery ladder:
+
+1. **Say what you're thinking** — "I'm trying to avoid the O(n²) re-scan; let me
+   think about what to precompute." Silence reads as freezing; a stuck-but-talking
+   candidate still scores.
+2. **Go back to a smaller/concrete example** and look for structure or a pattern.
+3. **Try a known pattern out loud** — "would sorting help? a hash map? two
+   pointers? can I binary-search the answer?" (walk the §20.2 table).
+4. **Solve a simpler version first** (e.g. no duplicates, or 1-D before 2-D), then
+   generalise.
+5. **Accept a hint gracefully** — interviewers *want* to nudge you; take it, say
+   thanks, and build on it. Fighting a hint hurts more than needing one.
+6. **Fall back to brute force and improve** — a working slow solution beats a
+   broken clever one, and often reveals the optimisation.
+
+> **Memory hook:** stuck ≠ failing. Think aloud, shrink the problem, try the
+> pattern menu, and take the hint. Progress + communication is the score.
+
+### MCQs
+
+1. Asked "can you do better?" first mention? → the **lower bound** ("must read all
+   n → ≥ O(n)").
+2. When stuck, worst move? → **going silent**; instead narrate and try patterns.
+3. How to report your solution's cost? → **both time and space Big-O + the
+   trade-off**.
+
 ---
 
 ## 20.2 Pattern Recognition (classify in seconds)
@@ -76,6 +134,33 @@ Follow this **every single time** (never jump straight to code):
 1. "Longest substring with ≤ k distinct" → ? → **sliding window**.
 2. "K-th largest in a stream" → ? → **heap**.
 3. "Number of ways to make change" → ? → **DP**.
+
+### 20.2a The top-6 patterns — a 10-second quick-classify
+
+If you only drill six patterns, drill these — they cover the majority of interview
+questions. Learn the *trigger phrase* and the *tell* for each:
+
+| Pattern | Trigger in the problem | The tell / when it fits |
+|---|---|---|
+| **Two pointers** | sorted array, pair/triplet, "in place", palindrome | move two indices toward/with each other; O(n) instead of O(n²) |
+| **Sliding window** | *contiguous* subarray/substring + a condition (longest/shortest/≤k) | grow the right edge, shrink the left when the window breaks the rule |
+| **BFS / DFS** | grid/graph/tree, "reachable", "connected", "islands", shortest in *unweighted* | BFS = shortest unweighted / level order; DFS = explore / paths / backtrack |
+| **Heap (priority queue)** | "top K", "K-th largest/smallest", "K closest", merge K lists | keep a size-K heap, or pop the min/max repeatedly; O(n log k) |
+| **Binary search** | sorted input **or** "minimum/maximum value that works" | search the answer space; check the "monotonic predicate" (M12) |
+| **Dynamic programming** | "count the ways", "min/max cost", "can we reach", overlapping choices | define a state, a transition, and base cases; memoise |
+
+**How to use it live:** read the problem, scan this list top to bottom, and say the
+first match aloud: "*contiguous* + *longest with a condition* → this is a **sliding
+window**." Naming the pattern is half the solution and a strong scored signal.
+
+> **Memory hook:** *Two pointers, Window, BFS/DFS, Heap, Binary search, DP.* Six
+> tools cover most rounds — classify first, then code.
+
+### MCQs
+
+1. "Longest contiguous subarray with sum ≤ k" → ? → **sliding window**.
+2. "Minimum capacity to ship within D days" → ? → **binary search on the answer**.
+3. "Shortest path in an unweighted grid" → ? → **BFS**.
 
 ---
 
@@ -137,6 +222,49 @@ module order.)
 2. Meta interview pace? → **fast** (~2 problems/round).
 3. Google emphasises? → **optimal solution + clean code + complexity**.
 
+### 20.4a Behavioral rounds: the STAR method
+
+Behavioral questions ("Tell me about a time you…") are scored just like coding
+rounds — with a rubric. **STAR** is the structure that answers them well:
+
+| Letter | Means | What to say (keep it tight) |
+|---|---|---|
+| **S — Situation** | the context | 1–2 sentences: project, your role, the stakes |
+| **T — Task** | your specific goal / responsibility | what *you* had to achieve, and the constraint |
+| **A — Action** | what **you** personally did | the bulk of the answer; concrete steps, decisions, trade-offs — use "**I**", not "we" |
+| **R — Result** | the outcome, **quantified** | metrics ("cut latency 40%", "shipped 2 weeks early"), and what you learned |
+
+**Worked skeleton** (question: *"a time you handled a conflict"*):
+
+```text
+S: On the payments team, a teammate and I disagreed on the retry design
+   two days before a launch.
+T: I had to reach a decision we could both own without slipping the date.
+A: I wrote up both designs with their failure modes, ran a quick load test on
+   each, and proposed a hybrid; I set up a 20-min call to walk through the data.
+R: We shipped on time; the hybrid cut failed payments ~30%. I learned to bring
+   data to a disagreement instead of opinions.
+```
+
+- **Prepare ~8–10 stories** from real experience, each tagged to themes: conflict,
+  failure, leadership, ambiguity, tight deadline, disagreed-with-manager, biggest
+  achievement. One good story can answer several questions.
+- **Amazon specifically:** map each story to a **Leadership Principle** (Customer
+  Obsession, Ownership, Dive Deep, Bias for Action, …); state the outcome with
+  **numbers**; expect follow-up "dive deep" questions, so know the details.
+- **Common traps:** telling a team story in "we" (they score *your* actions),
+  rambling with no result, or picking a fake weakness. Be specific and honest.
+
+> **Memory hook:** **S**ituation, **T**ask, **A**ction, **R**esult — spend most of
+> your words on **A** (what *I* did) and always land a **quantified R**.
+
+### MCQs
+
+1. STAR stands for? → **Situation, Task, Action, Result**.
+2. Which part deserves the most detail? → **Action** (what *you* personally did).
+3. Amazon behavioral tip? → **map each story to a Leadership Principle + quantify
+   the result**.
+
 ---
 
 ## 20.5 A Realistic Study Plan
@@ -160,6 +288,37 @@ module order.)
 2. What to track? → a **weakness log** (what you missed and why).
 3. Senior rounds add? → **system design** + behavioral.
 
+### 20.5a Mock-interview cadence
+
+Solving problems alone does not train the *interview* skill — talking while
+solving, under a stranger's eyes, does. Build mocks into the plan:
+
+- **When to start:** once you have covered the core patterns (≈ end of the Volume
+  phase). Mocks before that just expose gaps you already know about.
+- **Cadence:** **1–2 mocks per week** in the Polish phase, ramping to **~3 per
+  week** in the last 2–3 weeks before real interviews. Fewer than one a week and
+  the nerves never fade.
+- **Where:** **Pramp** / **interviewing.io** (peer or paid), or a study partner;
+  alternate being interviewer and interviewee — *giving* a mock sharpens your eye
+  for the scored signals.
+- **Make it realistic:** full 45-minute clock, think-aloud the whole time, a
+  shared editor with **no autocomplete/run** (whiteboard-like), camera on.
+- **Debrief every mock:** ask for one thing to keep and one to fix; log it in the
+  weakness log. Track your **communication** and **complexity-articulation**, not
+  just correctness.
+- **Include behavioral mocks** and, for senior roles, **system-design mocks** —
+  those rounds also need reps, not just reading.
+
+> **Memory hook:** you can't cram the *performance*. Rehearse the room: real clock,
+> think-aloud, a human watching — then debrief and log.
+
+### MCQs
+
+1. When should mocks begin? → **after core patterns are covered** (Polish phase).
+2. Mock cadence near interviews? → **~2–3 per week**.
+3. What to debrief after each mock? → **communication + complexity + one fix**,
+   logged.
+
 ---
 
 ## Module 20 — Concept Review (one page)
@@ -182,6 +341,13 @@ module order.)
 - Q: Best structured list? **A: Neetcode 150.**
 - Q: Amazon's key round? **A: Leadership Principles (STAR).**
 - Q: Practice style? **A: timed + think-aloud + weakness log.**
+- Q: STAR = ? **A: Situation, Task, Action, Result (most detail on Action).**
+- Q: When stuck in an interview? **A: think aloud, shrink the problem, try the
+  pattern menu, take the hint.**
+- Q: Report your solution's cost how? **A: time + space Big-O + the trade-off.**
+- Q: The top-6 patterns? **A: two pointers, sliding window, BFS/DFS, heap, binary
+  search, DP.**
+- Q: Mock-interview cadence near D-day? **A: ~2–3 per week, then debrief.**
 
 ## Module 20 — Pattern Recognition
 

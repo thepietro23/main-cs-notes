@@ -90,11 +90,36 @@ return all counts == 0
 - Case sensitivity, spaces, punctuation in palindrome/anagram problems.
 - Empty string and single character.
 
+### Substring vs Subsequence (do not confuse these)
+
+- **Substring** = a **contiguous** slice: `"ell"` is a substring of `"hello"`.
+- **Subsequence** = characters in order but **gaps allowed**: `"hlo"` is a
+  subsequence of `"hello"` (drop some letters), but **not** a substring.
+
+A string of length `n` has `n(n+1)/2` substrings but `2ⁿ` subsequences. This tells
+you the tool: contiguous problems (matching, windows) use KMP/Z/sliding window;
+non-contiguous problems (**LCS**, **edit distance**) need **DP**.
+
+> **Memory hook:** *subSTRING sticks together; subSEQUENCE can skip.*
+
+### Edit distance & similarity (pointer to DP)
+
+A very common string question is *"how many single-character edits (insert,
+delete, replace) turn string A into string B?"* — the **edit (Levenshtein)
+distance**. It is not solved by pattern matching; it is a classic **2D DP** over
+the two strings, `O(n·m)` time. The closely related **Longest Common
+Subsequence (LCS)** is also 2D DP. Both are covered fully in **Module 14 (Dynamic
+Programming)** — here just recognise the trigger words: *"minimum edits",
+"transform one string into another", "longest common …"* → **DP, not KMP**.
+
 ### MCQs
 
 1. `s += c` inside a loop on an immutable string is? → **O(n²)**.
 2. `c - 'a'` gives? → the letter's **0–25 index**.
 3. Anagram check space with only lowercase letters? → **O(1)** (26 counts).
+4. Is `"hlo"` a substring or subsequence of `"hello"`? → **subsequence**.
+5. "Minimum edits to change A into B" is solved by? → **DP (edit distance)**, not
+   pattern matching.
 
 ---
 
@@ -239,6 +264,37 @@ of `P[0..i]`. For `P = "ababaca"` → `LPS = [0,0,1,2,3,0,1]`.
 
 It answers: *"if I fail after matching `j` characters, how many of them still form
 a valid prefix I can reuse?"* — so I jump `j = LPS[j-1]` instead of restarting.
+
+### Worked LPS trace (build it by hand — GATE loves this)
+
+Let us build the LPS for `P = "ababaca"` step by step. Keep two things: `i` (the
+current index) and `length` (the length of the current matched prefix). Start
+`LPS[0] = 0` always (a single char has no *proper* prefix).
+
+```text
+P =  a  b  a  b  a  c  a
+idx  0  1  2  3  4  5  6
+
+i  P[i]  P[length]  compare       action                    length  LPS
+1   b      a(0)     b != a        length==0 → LPS[1]=0        0      0
+2   a      a(0)     a == a        match → length=1, LPS[2]=1  1      1
+3   b      b(1)     b == b        match → length=2, LPS[3]=2  2      2
+4   a      a(2)     a == a        match → length=3, LPS[4]=3  3      3
+5   c      b(3)     c != b        len>0 → length=LPS[2]=1     1      —
+5   c      b(1)     c != b        len>0 → length=LPS[0]=0     0      —
+5   c      a(0)     c != a        length==0 → LPS[5]=0        0      0
+6   a      a(0)     a == a        match → length=1, LPS[6]=1  1      1
+
+FINAL  LPS = [0, 0, 1, 2, 3, 0, 1]
+```
+
+Notice at `i=5` we **fell back twice** (`length = LPS[length-1]`) instead of
+resetting to 0 in one jump — that fallback is the clever heart of KMP, and it is
+why building the LPS is itself O(m).
+
+> **Memory hook:** *on a mismatch, don't reset to 0 — fall back to the next
+> shorter border and try again.* A "border" is a string that is both a proper
+> prefix and a suffix.
 
 ### Brute force → Optimal
 
@@ -483,6 +539,11 @@ for centre in 0 .. n-1:
   autocomplete.
 - **Palindromes** → check with two pointers O(n); longest = expand around centre
   O(n²) (Manacher O(n)); 2n−1 centres.
+- **Substring** (contiguous) vs **subsequence** (order kept, gaps ok):
+  `n(n+1)/2` vs `2ⁿ`. Non-contiguous → DP.
+- **Edit distance / LCS** → 2D DP (Module 14), *not* pattern matching.
+- **KMP LPS** builds in O(m) via fall-back `length = LPS[length-1]` on mismatch;
+  `LPS("ababaca") = [0,0,1,2,3,0,1]`.
 
 ## Module 3 — Flash Cards
 
@@ -494,6 +555,10 @@ for centre in 0 .. n-1:
 - Q: Which matcher does grep use? **A: Boyer-Moore (right-to-left skip).**
 - Q: Trie search time? **A: O(L), independent of #words.**
 - Q: Prefix query structure? **A: trie (hashmap can't do prefixes).**
+- Q: Substring vs subsequence? **A: substring is contiguous; subsequence keeps order but allows gaps.**
+- Q: "Minimum edits to transform A→B"? **A: edit distance = 2D DP (Module 14).**
+- Q: `LPS("ababaca")`? **A: [0,0,1,2,3,0,1].**
+- Q: On LPS mismatch (length>0)? **A: fall back `length = LPS[length-1]`.**
 
 ## Module 3 — Pattern Recognition
 
@@ -504,6 +569,8 @@ for centre in 0 .. n-1:
 - "Search many patterns at once" → **Rabin-Karp / Aho-Corasick**.
 - "Longest/shortest substring with a condition" → **sliding window** (Module 2).
 - "Palindrome / longest palindrome" → **two pointers / expand around centre**.
+- "Minimum edits / longest common subsequence / transform strings" → **DP**
+  (Module 14), not pattern matching.
 
 ## Module 3 — Interview Questions (with follow-ups)
 
@@ -512,6 +579,10 @@ for centre in 0 .. n-1:
 3. *Design autocomplete.* FU: *rank suggestions; memory at scale* → trie (+heap).
 4. *Detect a duplicate substring of length k.* FU: *rolling hash; collisions?*
 5. *Why is `s += c` in a loop slow?* FU: *fix it* → join/StringBuilder.
+6. *Build the KMP LPS for a given pattern by hand.* FU: *why is the build itself
+   O(m)?* → each fall-back only decreases `length`.
+7. *Edit distance between two words.* FU: *state the DP recurrence* → 2D DP
+   (Module 14).
 
 ## Module 3 — GATE / SEBI / RBI / ISRO Perspective
 
@@ -519,6 +590,8 @@ for centre in 0 .. n-1:
   tracing **naive vs KMP** comparisons, and **trie** structure questions.
 - **Complexity:** know naive O(nm) vs KMP/Z/Rabin-Karp O(n+m) cold.
 - **SEBI/RBI IT:** conceptual MCQs on pattern matching and tries.
+- **Counting:** number of substrings `n(n+1)/2` vs subsequences `2ⁿ`; recognising
+  edit-distance/LCS as DP (not string matching) is a common conceptual trap.
 
 ---
 
