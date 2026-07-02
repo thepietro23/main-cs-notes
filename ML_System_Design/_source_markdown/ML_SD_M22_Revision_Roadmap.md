@@ -572,8 +572,8 @@ SENIOR: breadth + own trade-offs ; connect ML <-> systems <-> business ; design 
 
 ---
 
-> **Next module:** *Module 23 — Capstone & Final Assessment.* You have the map;
-> now you drive the whole route unaided. Module 23 puts you through a full-length,
-> timed capstone design plus a final self-assessment, so you can prove — to
-> yourself and to an interviewer — that the 7-step spine and every pattern in this
-> revision are truly automatic.
+> **Next module:** *Module 23 — Competitive Exam Mapping (SEBI / RBI / GATE / ISRO).*
+> This revision module gave you the interview-ready map; Module 23 — the final
+> module — shows exactly which parts of the course carry weight in written exams
+> (SEBI Grade A IT, RBI Grade B IT, GATE CS/DA, ISRO/DRDO), with a topic→exam
+> matrix and PYQ-style practice questions.
