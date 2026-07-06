@@ -78,7 +78,7 @@ pays off. (★ = light, ★★★★★ = heavily and repeatedly tested.)
 | M16 | Security (rings, DAC/MAC/RBAC, capabilities, sandboxing) | ★★★ | ★★★ | ★★ | ★★★ | ★★★ |
 | M17 | Virtualization (VMs, hypervisors, containers) | ★★★ | ★★★ | ★★ | ★★ | ★★★ |
 | M18 | Cloud OS (pooled resources, scheduling at scale) | ★★★ | ★★ | ★★ | ★ | ★★ |
-| M19 | AI Infrastructure (GPU scheduling, memory) | ★★ | ★★ | ★ | ★ | ★★ |
+| M19 | AI-Engineering Perspective (GPU scheduling, memory) | ★★ | ★★ | ★ | ★ | ★★ |
 | M20 | Backend Engineering (servers, epoll, load balancing) | ★★ | ★★ | ★ | ★★★ | ★★★★★ |
 
 > **How to use it.** For **GATE/C-DAC**, live in the ★★★★★ numerical rows —
@@ -509,8 +509,8 @@ marks fast.
 
 Next, **Module 22 — Interview Preparation** turns the same material outward:
 how FAANG and backend/AI-infra interviews probe *why* these mechanisms work, plus
-scenario and production-debugging questions. After that, **Module 23** ties the
-whole course together.
+scenario and production-debugging questions. After that, **Module 23 — Hands-On
+Projects** and **Module 24 — The Revision Kit** close the course.
 
 > **You have mastered this module when** you can: state which of the five exams
 > wants computation vs recall; reproduce all six formula families with one worked

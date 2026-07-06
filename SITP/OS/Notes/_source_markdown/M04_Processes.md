@@ -176,7 +176,7 @@ adds two states:
 - **Waiting/Blocked-suspended:** was blocked *and* swapped out.
 
 > **Memory hook:** *suspended = "on the bench, sent to the locker room (disk)."*
-> Swapping is the bridge to **virtual memory (M9)**.
+> Swapping is the bridge to **virtual memory (M10)**.
 
 ### MCQs
 

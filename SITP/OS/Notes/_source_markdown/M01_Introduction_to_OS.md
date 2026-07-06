@@ -279,7 +279,7 @@ containers (Docker) are a lighter-weight cousin covered there.
 - **Mistake:** thinking an RTOS is "fast." An RTOS is **predictable** (deterministic
   deadlines), not necessarily high-throughput.
 - **Edge case:** more programs in memory ≠ always faster — beyond a point you get
-  **thrashing** (M9) as memory pressure dominates.
+  **thrashing** (M10) as memory pressure dominates.
 - **Tradeoff:** convenience vs control — a GUI OS is friendly; a server runs
   headless for efficiency and security.
 

@@ -564,7 +564,7 @@ tenants isolated and tame the **noisy neighbour**.
 
 This closes the systems arc that began in Module 1: from one machine and one kernel,
 through processes, memory, and files, up to **virtualization (M17)** and now the
-**cloud** — the platform on which **Module 19 — AI Infrastructure** builds GPU
+**cloud** — the platform on which **Module 19 — The AI-Engineering Perspective** builds GPU
 scheduling and model serving.
 
 > **You have mastered this module when** you can: state the NIST-5 and classify a

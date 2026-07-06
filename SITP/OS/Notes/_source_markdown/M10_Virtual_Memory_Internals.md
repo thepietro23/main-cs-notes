@@ -382,7 +382,7 @@ referenced in the last `Δ` references** (its working-set window). By the
 - **Give each process enough frames to hold its working set** → it faults rarely.
 
 > **Worked idea.** `Δ = 10` references, window = `2 6 1 5 7 7 7 5 1 6` → distinct
-> pages `{1,5,6,7}` → **WSS = 4** frames needed right now. If we grant ≥4 frames,
+> pages `{1,2,5,6,7}` → **WSS = 5** frames needed right now. If we grant ≥5 frames,
 > this process runs smoothly; fewer, and it thrashes.
 
 ### Page-Fault Frequency (PFF) — the practical control loop

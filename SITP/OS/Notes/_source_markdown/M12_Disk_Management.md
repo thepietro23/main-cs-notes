@@ -318,8 +318,8 @@ Movement = (183 - 53) + (183 - 14) + (37 - 14) = 130 + 169 + 23 = 322 cylinders
 | **LOOK** | 65,67,98,122,124,183,37,14 | **299** | SCAN without the wall |
 | **C-LOOK** | 65,67,98,122,124,183,→14,37 | **322** | C-SCAN without the wall |
 
-> **Sanity ranking for this queue:** SSTF (236) < LOOK (299) < SCAN (331) <
-> C-LOOK (322... note C-LOOK > SCAN here) — orderings depend on the queue, so
+> **Sanity ranking for this queue:** SSTF (236) < LOOK (299) < C-LOOK (322) <
+> SCAN (331) < C-SCAN (382) — orderings depend on the queue, so
 > **always compute**. The only guaranteed winner in movement is often SSTF (greedy),
 > but it starves; SCAN-family avoid starvation. FCFS is almost always the worst.
 

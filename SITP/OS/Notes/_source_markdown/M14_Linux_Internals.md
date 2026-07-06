@@ -112,7 +112,7 @@ credentials.
 > **The key insight:** `fork()` and creating a **thread** are the *same syscall*
 > with different flags.
 > - **`fork()`** ≈ `clone()` with **almost nothing shared** (new address space).
-> - **pthread_create()`** ≈ `clone()` with `CLONE_VM | CLONE_FILES | CLONE_SIGHAND
+> - **`pthread_create()`** ≈ `clone()` with `CLONE_VM | CLONE_FILES | CLONE_SIGHAND
 >   | CLONE_THREAD` (share everything). Both end up as a `task_struct` on the same
 >   run queue.
 

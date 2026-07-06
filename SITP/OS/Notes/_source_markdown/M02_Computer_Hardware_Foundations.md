@@ -15,9 +15,9 @@ date: "2026"
 > **memory hierarchy** (registers → cache → RAM → disk), and the helpers —
 > **timers, MMU, DMA, PCIe, NUMA, multi-core**. Almost every later chapter is the
 > OS *reacting to* something here: scheduling is triggered by a **timer
-> interrupt** (M6), context switches save **registers** (M5), virtual memory is
+> interrupt** (M6), context switches save **registers** (M4), virtual memory is
 > the **MMU** doing address translation (M9), and device drivers ride **interrupts
-> and DMA** (M12). Get this vocabulary solid and every later module clicks.
+> and DMA** (M13). Get this vocabulary solid and every later module clicks.
 
 **Importance ratings (out of 5):**
 
@@ -70,7 +70,7 @@ the CPU has three parts and a set of small, blazing-fast memories called
 
 ## 2.2 Registers — The CPU's Working Memory
 
-Registers are worth memorising **by role**, because context switching (M5) is
+Registers are worth memorising **by role**, because context switching (M4) is
 literally "save all the registers of process A, load all of process B", and
 because register names are classic one-mark questions.
 
@@ -197,7 +197,7 @@ disk completion, and system call reaches the kernel as an interrupt/trap.**
 ```
 
 The interrupted program never knows it was paused — the OS restored its exact
-state. **This save/restore is the seed of the context switch (M5).**
+state. **This save/restore is the seed of the context switch (M4).**
 
 ### 2.4.3 Vectored vs polled interrupts
 
@@ -367,7 +367,7 @@ miss_penalty**.
 
 The **MMU** is hardware (on the CPU) that translates the **logical/virtual address**
 a program uses into the **physical address** in RAM, on **every** memory access. It
-is what makes **virtual memory, paging, and protection** (M8–M9) possible.
+is what makes **virtual memory, paging, and protection** (M9–M10) possible.
 
 - Programs run in their own **virtual address space** (each thinks it owns all of
   memory); the MMU maps virtual pages → physical frames via **page tables**.
@@ -451,7 +451,7 @@ The CPU, memory, and devices are wired together by **buses**:
 - **Network devices** — send/receive packets (a special stream).
 
 Each device has a **controller** (its own small processor + registers/buffers); the
-OS talks to it through a **device driver** (M12). Registers are accessed via
+OS talks to it through a **device driver** (M13). Registers are accessed via
 **memory-mapped I/O** (device registers appear as memory addresses) or **port-mapped
 I/O** (special `in`/`out` instructions).
 

@@ -249,7 +249,8 @@ atomic, **two threads can't both read `false`**.
 
 ### Compare-and-Swap (CAS)
 
-More powerful (and what real hardware exposes as `CMPXCHG` / `LOCK XADD`, or C11
+More powerful (and what real hardware exposes as `CMPXCHG` — the true compare-and-swap;
+`LOCK XADD` is the related fetch-and-add — or C11
 `atomic_compare_exchange`). Atomically: "if the value is what I *expected*, replace
 it; either way tell me the old value."
 

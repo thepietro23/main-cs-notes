@@ -97,7 +97,8 @@ There are three ways to serve many connections at once. Know **what each spends*
   **megabytes** and its **context switch** is expensive (flush TLB, swap address
   space — M9/M10). Doesn't scale past a few hundred.
 - **Thread-per-connection:** threads share one address space (M5), so they're
-  **cheaper** than processes, but each still needs a **stack** (~1 MB by default)
+  **cheaper** than processes, but each still needs a **stack** (~1 MB here for
+  illustration; the Linux default is often 8 MB)
   and the scheduler must **context-switch** among thousands of them. This is what
   hits the **C10k** wall (§20.3). It also needs **locks** (M7) around shared state.
 - **Event loop (reactor):** **one thread** (or one per core) uses **I/O

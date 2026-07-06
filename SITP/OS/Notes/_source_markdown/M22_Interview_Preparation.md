@@ -659,8 +659,9 @@ and the **tools to name-drop** (`top`, `vmstat`, `iostat`, `strace`, `perf`, `ls
 `dmesg`). Pair this with Module 21's exam drills and the whole OS course now serves
 both the written papers and the interview room.
 
-Next, **Module 23** closes the course, tying every module together into a final
-integrated view and revision plan.
+Next, **Module 23 — Hands-On Projects** turns this theory into working code, and
+**Module 24 — The Revision Kit** closes the course with a final integrated view and
+revision plan.
 
 > **You have mastered this module when** you can: explain process vs thread, mutex
 > vs semaphore, virtual memory, and the four deadlock conditions with their

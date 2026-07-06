@@ -80,10 +80,10 @@ uname -r                                                         # your kernel v
 | 1 | **Mini CPU Scheduler** (FCFS/SJF/RR) | M6 | ★☆☆☆☆ | ★★★☆☆ | 1 |
 | 2 | **Mini Shell** (fork/exec/pipe/redir) | M4, M3 | ★★★☆☆ | ★★★★★ | 1–2 |
 | 3 | **Mini Memory Allocator** (malloc/free) | M9 | ★★★☆☆ | ★★★★★ | 1–2 |
-| 4 | **Mini Process Manager** (ps via /proc) | M4, M14 | ★★☆☆☆ | ★★★☆☆ | 1 |
-| 5 | **OS Monitoring Tool** (top-like) | M4, M6, M9, M14 | ★★☆☆☆ | ★★★☆☆ | 1 |
-| 6 | **User-level Thread Library** (ucontext) | M5, M6 | ★★★★☆ | ★★★★★ | 2 |
-| 7 | **Mini File System** (inodes/blocks) | M11, M12 | ★★★★☆ | ★★★★☆ | 2–3 |
+| 4 | **Mini File System** (inodes/blocks) | M11, M12 | ★★★★☆ | ★★★★☆ | 2–3 |
+| 5 | **Mini Process Manager** (ps via /proc) | M4, M14 | ★★☆☆☆ | ★★★☆☆ | 1 |
+| 6 | **OS Monitoring Tool** (top-like) | M4, M6, M9, M14 | ★★☆☆☆ | ★★★☆☆ | 1 |
+| 7 | **User-level Thread Library** (ucontext) | M5, M6 | ★★★★☆ | ★★★★★ | 2 |
 | 8 | **Linux Kernel Module** (hello + /proc) | M3, M14 | ★★★★★ | ★★★★☆ | 1–2 |
 
 **Suggested order (why this sequence):**

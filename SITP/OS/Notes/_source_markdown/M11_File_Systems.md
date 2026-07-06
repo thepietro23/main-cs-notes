@@ -349,7 +349,7 @@ Max file size = total blocks × B
 
 ## 11.7 UNIX Permissions (rwx, octal, chmod)
 
-UNIX protects each file with **three permission bits — read (r), write (x), execute
+UNIX protects each file with **three permission bits — read (r), write (w), execute
 (x)** — for **three classes — owner (user), group, others**. Nine bits in all.
 
 ```text
