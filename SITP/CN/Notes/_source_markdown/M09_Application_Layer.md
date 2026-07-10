@@ -83,8 +83,9 @@ for the domain. Resolution:
 
 ## 9.3 HTTP & HTTPS — the Web
 
-**HTTP (HyperText Transfer Protocol)** is a **stateless, text-based request/response**
-protocol over **TCP port 80** (**HTTPS** = HTTP over **TLS**, port **443**).
+**HTTP (HyperText Transfer Protocol)** is a **stateless request/response** protocol
+(text-based in HTTP/1.x; **binary-framed** in HTTP/2 and HTTP/3)
+over **TCP port 80** (**HTTPS** = HTTP over **TLS**, port **443**).
 
 ![HTTP request/response: the client sends a method + URL + headers; the server returns a status code + headers + body. Stateless, so cookies/tokens add state.](images/26_http.png)
 

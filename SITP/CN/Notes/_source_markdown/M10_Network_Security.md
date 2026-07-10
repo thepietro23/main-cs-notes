@@ -57,7 +57,7 @@ asymmetric** encryption (AES/DES vs RSA/ECC); **hashing** (SHA/MD5) vs encryptio
   standard), DES/3DES (old).
 - **Asymmetric (public-key):** a **key pair** — **encrypt with the public key, decrypt
   with the private key**. **Slow**, but solves key distribution. Algorithms: **RSA**,
-  **ECC** (Diffie-Hellman for key exchange).
+  **ECC**; **Diffie-Hellman (DH/ECDH)** for key exchange.
 - **Hybrid (the real world):** use **asymmetric to exchange a symmetric session key**,
   then **symmetric** for the actual data (this is exactly what TLS does).
 
