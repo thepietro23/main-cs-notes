@@ -157,7 +157,7 @@ OSI's 7 into 4** (some books say 5, splitting Link into Data Link + Physical):
 | Role | reference/teaching model | practical, in-use model |
 | Developed | ISO | DARPA / IETF |
 | Layer coupling | strict, well-defined | protocols came first, model after |
-| Transport delivery | both connection-oriented | TCP (CO) + UDP (CL) |
+| Transport delivery | both CO and CL service | TCP (CO) + UDP (CL) |
 
 > **Memory hook:** **OSI teaches, TCP/IP runs.** OSI's top three (Application,
 > Presentation, Session) all fold into TCP/IP's single **Application** layer.

@@ -126,7 +126,8 @@ subnetting.
 
 1. Usable hosts in a /26? → **62** (2⁶−2).
 2. To make 8 subnets, borrow how many bits? → **3** (2³).
-3. /29 gives how many usable hosts? → `2³ − 2 =` **6** (great for point-to-point +).
+3. /29 gives how many usable hosts? → `2³ − 2 =` **6** (good for tiny subnets; note a
+   pure point-to-point link uses **/30** or **/31**).
 4. Network address of 10.1.1.200/26? → **10.1.1.192**.
 
 ---
@@ -266,7 +267,8 @@ Improvements over IPv4:
   traversal** (STUN/TURN) is a real problem for peer-to-peer/WebRTC.
 - **TTL** shows up as the "hop limit" in `traceroute`, and as a cause of "why can't I
   reach X" (routing loops drop packets at TTL 0).
-- **IPv6 is now majority traffic** for big providers (Google reports ~40%+); backend
+- **IPv6 now carries a large share of traffic** for big providers (Google reports
+  ~40%+ and rising); backend
   services must be dual-stack.
 
 ---

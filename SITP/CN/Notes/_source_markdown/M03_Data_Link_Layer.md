@@ -68,9 +68,15 @@ The receiver sees a stream of bits; framing marks boundaries. Methods:
   consecutive 1s the sender inserts a 0**; the receiver removes it. This guarantees
   the flag never appears inside data.
 
-**Bit-stuffing worked example:** data `0111111 0111110` →
-after every five 1s insert a 0 → `011111**0**1 0111110` (sender stuffs a 0 after the
-first five 1s). The receiver strips the stuffed 0 to recover the original.
+**Bit-stuffing worked example:** the data `0111111 0111110` contains **two** runs of
+five consecutive 1s, so the sender inserts a **0 after *each* fifth 1**:
+
+```text
+data    : 0 11111 1 0 11111 0          (two runs of five 1s)
+stuffed : 0 11111[0] 1 0 11111[0] 0  ->  0111110101111100
+```
+
+The receiver removes the 0 that follows any five 1s to recover the original.
 
 > **Memory hook:** **bit stuffing = "after five 1s, sneak in a 0"** so the real flag
 > `01111110` is never faked by the data.
