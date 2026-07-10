@@ -128,7 +128,7 @@ free. **Design for partial failure.**
 Rough **latency ladder** (order-of-magnitude, "numbers every engineer should know"):
 
 ```text
-L1/L2 cache        ~1 ns
+L1 cache           ~1 ns   (L2 ~5 ns)
 main memory (RAM)  ~100 ns
 SSD read           ~100 us (microseconds)
 network same DC    ~0.5 ms

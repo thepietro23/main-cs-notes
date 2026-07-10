@@ -54,7 +54,8 @@ training; **network as the training bottleneck**; congestion control in DCs (ECN
 ![Spine-leaf: every leaf switch connects to every spine, so any server-to-server path is the same two hops — uniform low latency and high bisection bandwidth.](images/36_spine_leaf.png)
 
 - **Every leaf connects to every spine.** Any server-to-server path is **leaf → spine →
-  leaf** — the **same 2 hops**, giving **predictable latency** and **high bisection
+  leaf** — **at most 2 hops** (two servers under the *same* leaf are just 1 hop),
+  giving **predictable latency** and **high bisection
   bandwidth**.
 - Replaces the old **3-tier tree** (core/aggregation/access), which bottlenecked
   east-west traffic and had uneven path lengths.
@@ -96,7 +97,8 @@ traffic. **RDMA (Remote Direct Memory Access)** lets one machine read/write anot
 
 ## 14.4 GPU Interconnects (inside & across nodes)
 
-- **Within a server:** **NVLink / NVSwitch** connect GPUs directly at **TB/s**, far
+- **Within a server:** **NVLink / NVSwitch** connect GPUs directly at up to **~TB/s**
+  (NVSwitch aggregate), far
   faster than PCIe — so 8 GPUs act almost like one.
 - **Across servers:** **InfiniBand / RoCE** NICs (often GPUDirect RDMA — NIC reads GPU
   memory directly, skipping the CPU).
