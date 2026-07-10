@@ -120,7 +120,7 @@ Key header fields:
 
 1. Client → **SYN** (seq = x): "let's talk; my start seq is x."
 2. Server → **SYN-ACK** (seq = y, ack = x+1): "ok; my start seq is y, I got yours."
-3. Client → **ACK** (ack = y+1): "got yours." → **connection established**.
+3. Client → **ACK** (seq = x+1, ack = y+1): "got yours." → **connection established**.
 
 Why **three**? Both sides must **agree on initial sequence numbers** and confirm each
 other is reachable — two messages can't confirm both directions.
