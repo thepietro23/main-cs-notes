@@ -109,8 +109,7 @@ assistant. A typical request has:
 
 **Input** = 500 + 3000 + 100 = **3,600 tokens**. **Output** = **400 tokens**.
 
-$$\text{cost} = 3600 \times \frac{\$3}{10^6} + 400 \times \frac{\$15}{10^6}
-= \$0.0108 + \$0.0060 = \$0.0168 \text{ per request.}$$
+> **cost** = 3,600 × (\$3 / 1M) + 400 × (\$15 / 1M) = \$0.0108 + \$0.0060 = **\$0.0168 per request.**
 
 At **1 million requests/day** that is **\$16,800/day ≈ \$500k/month** — from a
 single number you can now reason about the business. Notice the retrieved
@@ -615,9 +614,9 @@ signal.
 
 Recall \$0.0168/request at 1M req/day = \$16,800/day. Suppose **40%** of queries
 are cache hits (\$0), and of the remaining 60%, **70%** are "easy" and routed to a
-model 10× cheaper. New daily cost ≈ $0.4 \times 0 + 0.6 \times [0.7 \times
-(\$0.0168/10) + 0.3 \times \$0.0168] \times 10^6 \approx \$0.6 \times (\$1176 +
-\$5040) \approx$ **\$3,730/day** — a **~78%** cut. Same model quality where it
+model 10× cheaper. New daily cost ≈ 0.4 × \$0 + 0.6 × [0.7 × (\$0.0168 / 10)
++ 0.3 × \$0.0168] × 1M ≈ 0.6 × (\$1,176 + \$5,040) ≈ **\$3,730/day** — a
+**~78%** cut. Same model quality where it
 matters. This is the kind of number that wins the interview.
 
 ---
